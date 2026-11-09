@@ -57,6 +57,8 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/me", s.session(s.handleMe))
 	mux.HandleFunc("GET /api/items", s.session(s.handleListItems))
 	mux.HandleFunc("POST /api/text", s.session(s.origin(s.handlePostText)))
+	mux.HandleFunc("POST /api/upload", s.session(s.origin(s.handleUpload)))
+	mux.HandleFunc("GET /api/items/{id}/raw", s.session(s.handleRaw))
 	mux.HandleFunc("DELETE /api/items/{id}", s.session(s.origin(s.handleDeleteItem)))
 	mux.HandleFunc("DELETE /api/items", s.session(s.origin(s.handleClearItems)))
 	mux.HandleFunc("GET /events", s.session(s.handleEvents))
