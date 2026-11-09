@@ -18,8 +18,8 @@
 - Cross-compile targets: darwin/arm64, darwin/amd64, windows/amd64, linux/amd64, linux/arm64.
 - Default listen `0.0.0.0:8848`. If the port is busy, try +1 up to 10 attempts. If all fail, exit with an error that mentions `--port`.
 - Flags: `--port` `--name`(default `drop`) `--dir` `--no-auth` `--ttl`(default `24h`) `--keep` `--max-size`(default `4GB`) `--no-save` `--no-open` `--lang`(en|zh|ja|ko, default `en`, env `LANDROP_LANG`) `--version`.
-- Access code: 6 random digits (crypto/rand). Link token: 128-bit random hex, passed as `?t=`. Session cookie `landrop_sid` with `HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`. Sessions live only in memory.
-- Auth rate limit: per IP, 5 consecutive failures cause a 60s lock.
+- Access code: 4 random digits (crypto/rand, leading zeros allowed); no accounts — entering the code is the only gate. Link token: 128-bit random hex, passed as `?t=`. Session cookie `landrop_sid` with `HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`. Sessions live only in memory.
+- Auth rate limit: per IP, 5 consecutive failures cause a 60s lock. Global: more than 30 failures (all IPs) within any 60s window locks all code attempts for 60s; existing sessions and token links are unaffected.
 - Text limit: 1 MiB (`1<<20` bytes). File default limit: 4 GiB (`4<<30`).
 - Item TTL default 24h, swept every 1 minute.
 - Share link: 128-bit random ID. Defaults `max_downloads=1`, `ttl_seconds=600`. Invalid links return HTTP 410.
@@ -333,10 +333,10 @@ func TestPeerJoinLeaveAndKick(t *testing.T) {
 const CookieName = "landrop_sid"; const CookieMaxAge = 30 * 24 * 3600
 var ErrBadCode, ErrLocked error
 type Session struct { ID string; PeerID string; CreatedAt time.Time }
-func New(now func() time.Time) *Manager      // random 6-digit Code (leading zeros allowed), 32-hex Token
+func New(now func() time.Time) *Manager      // random 4-digit Code (leading zeros allowed), 32-hex Token
 func (m *Manager) Code() string
 func (m *Manager) Token() string
-func (m *Manager) CheckCode(ip, code string) error  // constant-time compare; 5 consecutive fails → ErrLocked for 60s; success resets
+func (m *Manager) CheckCode(ip, code string) error  // constant-time compare; per-IP: 5 consecutive fails → ErrLocked 60s, success resets; global: >30 fails in 60s window → ErrLocked for everyone 60s
 func (m *Manager) CheckToken(tok string) bool       // constant-time
 func (m *Manager) NewSession() Session               // ID 32-hex, PeerID "p_" + 8 hex
 func (m *Manager) Lookup(id string) (Session, bool)
@@ -345,7 +345,7 @@ func (m *Manager) RevokePeer(peerID string)
 
 - [ ] **Step 1: Failing tests**
 ```go
-func TestCodeFormat(t *testing.T) { m := New(time.Now); if ok, _ := regexp.MatchString(`^\d{6}$`, m.Code()); !ok || len(m.Token()) != 32 { t.Fatal(m.Code(), m.Token()) } }
+func TestCodeFormat(t *testing.T) { m := New(time.Now); if ok, _ := regexp.MatchString(`^\d{4}$`, m.Code()); !ok || len(m.Token()) != 32 { t.Fatal(m.Code(), m.Token()) } }
 func TestLockout(t *testing.T) {
 	now := time.Unix(0, 0); m := New(func() time.Time { return now })
 	for i := 0; i < 5; i++ { if err := m.CheckCode("1.1.1.1", "x"); !errors.Is(err, ErrBadCode) { t.Fatal(i, err) } }
@@ -353,6 +353,13 @@ func TestLockout(t *testing.T) {
 	if err := m.CheckCode("2.2.2.2", m.Code()); err != nil { t.Fatal("other IP must not be locked") }
 	now = now.Add(61 * time.Second)
 	if err := m.CheckCode("1.1.1.1", m.Code()); err != nil { t.Fatal(err) }
+}
+func TestGlobalLockout(t *testing.T) {
+	now := time.Unix(0, 0); m := New(func() time.Time { return now })
+	for i := 0; i < 31; i++ { m.CheckCode(fmt.Sprintf("10.0.%d.%d", i/250, i%250), "x") } // 31 distinct IPs, 1 fail each
+	if err := m.CheckCode("10.9.9.9", m.Code()); !errors.Is(err, ErrLocked) { t.Fatal("want global lock", err) }
+	now = now.Add(61 * time.Second)
+	if err := m.CheckCode("10.9.9.9", m.Code()); err != nil { t.Fatal(err) }
 }
 func TestSessionsAndRevoke(t *testing.T) {
 	m := New(time.Now); s := m.NewSession()
@@ -697,7 +704,7 @@ export function formatSpeed(bytesPerSec: number): string // formatSize + "/s"
 - `vite.config.ts`: `build.outDir: '../internal/webui/dist'`, `emptyOutDir: true`, dev `server.proxy` for `/api`, `/events`, `/s` → `http://127.0.0.1:8848`.
 - `package.json` scripts: `dev`, `build` (`tsc --noEmit && vite build`), `test` (`vitest run`), `e2e` (`playwright test`). Deps: `preact`, `@preact/signals`, `highlight.js`. Dev deps: `vite`, `@preact/preset-vite`, `typescript`, `vitest`, `@playwright/test`.
 - Routing in `app.tsx` uses `location.pathname`. `/s/:id` renders `SharePage` (Task 16). Otherwise it calls `api.me()`: a 401 renders `LoginPage`, otherwise `MainPage` (Task 15). Until then a stub `<div>` is fine.
-- `LoginPage`: a 6-digit numeric input (`inputmode="numeric"`, autofocus, auto-submit at 6 digits) and error text for `bad_code`/`locked`. `LangSwitch` sits top-right.
+- `LoginPage`: a 4-digit numeric input (`inputmode="numeric"`, autofocus, auto-submit at 4 digits) and error text for `bad_code`/`locked`. `LangSwitch` sits top-right.
 - CSS tokens on `:root` copy the Option B mockup variables (`--bg --card --fg --mut --line --code --acc --accbg`), with a dark set under `@media (prefers-color-scheme: dark)` and an override via `[data-theme=light|dark]` on `<html>`.
 
 - [ ] **Step 1: Failing tests** (Vitest)
@@ -806,7 +813,7 @@ test('PeersPanel hides kick for peer role', () => { /* me.role='peer' → no but
 **Files:** Create `web/playwright.config.ts`, `web/e2e/smoke.spec.ts`, `README.md`; Modify `Makefile` (add `e2e` target that builds, starts `bin/landrop --no-open --port 18848 --lang en` with `HOME` set to a temp dir, then runs Playwright)
 
 **Interfaces:**
-- Consumes: the whole app. The `e2e` target redirects the server's stdout to `web/test-results/server.log` and passes that path to Playwright as env `LANDROP_LOG`. The spec reads the access code (regex `Access code: (\d{6})`) and the base URL from that log.
+- Consumes: the whole app. The `e2e` target redirects the server's stdout to `web/test-results/server.log` and passes that path to Playwright as env `LANDROP_LOG`. The spec reads the access code (regex `Access code: (\d{4})`) and the base URL from that log.
 
 - [ ] **Step 1: Write e2e** `web/e2e/smoke.spec.ts` (chromium only):
   1. **Login by code**: open the base URL, read the code from the log, type it, and see the composer.

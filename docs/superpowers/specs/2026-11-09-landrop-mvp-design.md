@@ -23,7 +23,7 @@
 
 ### 2.2 非目标
 
-PRD §3.2 全部；以及所有 P2 项：F-14 新设备确认、F-34 断点续传、F-35 文件夹上传、F-54 阅后即焚、`--tls`。
+PRD §3.2 全部；PRD §15 的"多 Host 互联"（用户确认留到后续版本）；以及所有 P2 项：F-14 新设备确认、F-34 断点续传、F-35 文件夹上传、F-54 阅后即焚、`--tls`。
 
 ### 2.3 反目标（即使功能"能用"也算失败）[我的判断，基于用户痛点推断]
 
@@ -99,17 +99,17 @@ web/                  Preact 前端源码；web/dist 由 embed 引入
 
 - 默认 `0.0.0.0:8848`，占用则递增，最多 10 次，失败报错并提示 `--port`。
 - 参数：`--port` `--name`（mDNS 名，默认 `drop`）`--dir` `--no-auth` `--ttl`（默认 24h）`--keep` `--max-size`（默认 4GB）`--no-save`（关闭自动保存，[我的判断] 新增）`--no-open`（[我的判断] 新增）`--version`。
-- 终端打印：所有可用地址（排除 loopback、docker/veth/utun/vboxnet/vmnet 等虚拟网卡）并标注推荐地址（优先私有网段、有默认路由的网卡）、`http://<name>.local:<port>`、6 位访问码、带 token 的链接及其 ASCII 二维码；以及 AP 隔离提示、Windows 防火墙 `netsh` 放行命令（仅 Windows）、macOS 本地网络权限提示。
+- 终端打印：所有可用地址（排除 loopback、docker/veth/utun/vboxnet/vmnet 等虚拟网卡）并标注推荐地址（优先私有网段、有默认路由的网卡）、`http://<name>.local:<port>`、4 位访问码、带 token 的链接及其 ASCII 二维码；以及 AP 隔离提示、Windows 防火墙 `netsh` 放行命令（仅 Windows）、macOS 本地网络权限提示。
 - 启动后用系统命令打开本机浏览器（open / xdg-open / rundll32），URL 带 token 使 Host 免输入码。
 - `--no-auth`：终端醒目黄色警告，页面顶部常驻提示。
 
 ### 6.2 访问控制（F-10~F-13、PRD §11）
 
-- 访问码：6 位随机数字（crypto/rand）。另生成 128-bit 随机 **token** 用于链接/二维码 `?t=`。
+- 访问码 [用户定]：不设账户和登录流程，每次启动随机生成 **4 位数字码**（crypto/rand，允许前导 0）；任何设备输入此码即进入会话。另生成 128-bit 随机 **token** 用于链接/二维码 `?t=`。
 - 进入方式：带有效 `?t=` 访问 → 签发会话 Cookie 并 302 去掉查询参数；否则显示输入码页 → `POST /api/auth`。
 - 会话 Cookie：随机 ID，`HttpOnly; SameSite=Strict; Path=/; Max-Age=30 天` [我的判断]。设置较长的 Max-Age 是为了让关掉浏览器（尤其是 iOS Safari）后不必重新输码。会话本身只保存在 Host 进程内存中，进程重启后全部失效，旧 Cookie 自然作废，这样就满足 F-12 "与 Host 运行周期一致"。
 - Origin 校验：写接口要求 `Origin` 的 host:port 与请求的 `Host` 头一致（因此 localhost 和局域网 IP 两种访问方式都能通过）。
-- 失败限流：每 IP 连续失败 5 次锁 60 秒。
+- 失败限流：每 IP 连续失败 5 次锁 60 秒；另加全局限流 [我的判断，因 4 位码仅 1 万种组合]：任意 60 秒窗口内全局失败超过 30 次，则所有输码尝试暂停 60 秒（已登录会话与 token 链接不受影响）。
 - 踢出：吊销该会话并断开其 SSE；被踢设备仍可凭访问码重新进入 [我的判断，P2 的新设备确认不做]。
 
 ### 6.3 消息流与实时（F-20~F-26、F-50~F-52）
