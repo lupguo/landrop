@@ -35,3 +35,23 @@ export function setDeviceName(n: string): void {
   deviceName.value = n
   try { localStorage.setItem(KEY, n) } catch { /* ignore */ }
 }
+
+export const NAME_MAX = 40
+
+/** Trim and cap a user-entered device name; empty falls back to the guessed name. */
+export function normalizeDeviceName(raw: string, guessed: string): string {
+  const n = Array.from(raw.trim()).slice(0, NAME_MAX).join('')
+  return n || guessed
+}
+
+/** Persist a user-entered name (empty resets to the guessed name and clears storage). */
+export function saveDeviceName(raw: string): string {
+  const guessed = guessDeviceName(typeof navigator !== 'undefined' ? navigator.userAgent : '')
+  const n = normalizeDeviceName(raw, guessed)
+  deviceName.value = n
+  try {
+    if (n === guessed) localStorage.removeItem(KEY)
+    else localStorage.setItem(KEY, n)
+  } catch { /* ignore */ }
+  return n
+}

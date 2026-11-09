@@ -1,10 +1,18 @@
 import { useSignal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
+import type { Item } from '../api'
+import { t } from '../i18n'
+import { openOverlay } from '../lib/overlay'
+import { me } from '../live'
 import { utf8Len } from '../lib/meta'
 import { enqueue } from '../lib/uploads'
 import { Composer, draft, sendText, TEXT_LIMIT } from './Composer'
 import { ConnBanner } from './ConnBanner'
+import { DirBrowser } from './DirBrowser'
 import { Feed } from './Feed'
+import { PeersPanel } from './PeersPanel'
+import { Settings } from './Settings'
+import { ShareDialog } from './ShareDialog'
 import { TopBar } from './TopBar'
 
 function isEditable(el: EventTarget | null): boolean {
@@ -16,16 +24,19 @@ function hasFiles(e: DragEvent): boolean {
   return !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')
 }
 
-const noop = () => {}
-
 export function MainPage() {
   const dragging = useSignal(false)
   const ta = useRef<HTMLTextAreaElement>(null)
+  const panel = useSignal<'' | 'peers' | 'settings'>('')
+  const sharing = useSignal<Item | null>(null)
+  const tab = useSignal<'messages' | 'folder'>('messages')
+  const hasDir = !!me.value?.has_dir
 
   useEffect(() => {
     let depth = 0
 
     function onPaste(e: ClipboardEvent) {
+      if (openOverlay.value > 0) return // a dialog/panel is open
       if (isEditable(e.target) || isEditable(document.activeElement)) return
       const cd = e.clipboardData
       if (!cd) return
@@ -87,14 +98,31 @@ export function MainPage() {
     }
   }, [])
 
+  const showFolder = hasDir && tab.value === 'folder'
   return (
     <div class="main">
-      <TopBar onPeersClick={noop} onSettingsClick={noop} />
+      <TopBar
+        onPeersClick={() => { panel.value = panel.value === 'peers' ? '' : 'peers' }}
+        onSettingsClick={() => { panel.value = 'settings' }}
+      />
       <ConnBanner />
       <div class="main-col">
-        <Composer dragging={dragging.value} textareaRef={ta} />
-        <Feed onShare={noop} />
+        {hasDir && (
+          <div class="tabs" role="tablist">
+            <button role="tab" class={`tab${!showFolder ? ' on' : ''}`} aria-selected={!showFolder} onClick={() => { tab.value = 'messages' }}>{t('dir.tab_messages')}</button>
+            <button role="tab" class={`tab${showFolder ? ' on' : ''}`} aria-selected={showFolder} onClick={() => { tab.value = 'folder' }}>{t('dir.tab_folder')}</button>
+          </div>
+        )}
+        {showFolder ? <DirBrowser /> : (
+          <>
+            <Composer dragging={dragging.value} textareaRef={ta} />
+            <Feed onShare={(it) => { sharing.value = it }} />
+          </>
+        )}
       </div>
+      {panel.value === 'peers' && <PeersPanel onClose={() => { panel.value = '' }} />}
+      {panel.value === 'settings' && <Settings onClose={() => { panel.value = '' }} />}
+      {sharing.value && <ShareDialog item={sharing.value} onClose={() => { sharing.value = null }} />}
     </div>
   )
 }

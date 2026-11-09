@@ -2,14 +2,10 @@ import { useEffect, useState } from 'preact/hooks'
 import { api, ApiError } from './api'
 import { LoginPage } from './components/LoginPage'
 import { MainPage } from './components/MainPage'
+import { SharePage } from './components/SharePage'
 import { Toasts } from './components/Toast'
 import { t } from './i18n'
 import { me, startLive, stopLive } from './live'
-
-// Stub: Task 16 implements the share page.
-function SharePage(props: { id: string }) {
-  return <div class="login"><div class="card login-card">{t('share.stub')} {props.id}</div></div>
-}
 
 export function App() {
   const m = location.pathname.match(/^\/s\/([^/]+)/)
