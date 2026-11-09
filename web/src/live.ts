@@ -57,9 +57,13 @@ function connect(): void {
     src.close()
     if (es === src) es = null
     if (!running) return
-    clearTimeout(timer)
-    timer = setTimeout(connect, backoff)
-    backoff = Math.min(backoff * 2, 3000)
+    // Probe auth: a 401 triggers the unauthorized handler, which stops us.
+    void api.me().catch(() => {}).then(() => {
+      if (!running || es) return
+      clearTimeout(timer)
+      timer = setTimeout(connect, backoff)
+      backoff = Math.min(backoff * 2, 3000)
+    })
   }
 
   src.addEventListener('item.created', (e) => {

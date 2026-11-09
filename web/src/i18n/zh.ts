@@ -3,6 +3,7 @@ export const zh: Record<string, string> = {
   'app.connected': '已连接',
   'app.disconnected': '正在重连…',
   'app.items': '{n} 条内容',
+  'app.unreachable': '无法连接 LanDrop，正在重试…',
   'app.loading': '加载中…',
   'login.title': '输入访问码',
   'login.hint': '请输入主机上显示的 4 位数字访问码。',

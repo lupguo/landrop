@@ -19,5 +19,5 @@ const target = 'http://127.0.0.1:8848'
 export default defineConfig({
   plugins: [preact(), keepGitkeep()],
   build: { outDir: '../internal/webui/dist', emptyOutDir: true },
-  server: { proxy: { '/api': target, '/events': target, '/s': target } },
+  server: { proxy: { '/api': target, '/events': target, '^/s/': target } },
 })

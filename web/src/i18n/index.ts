@@ -31,3 +31,5 @@ export function t(key: keyof typeof en, params?: Record<string, string | number>
   if (params) s = s.replace(/\{(\w+)\}/g, (m, p) => (p in params ? String(params[p]) : m))
   return s
 }
+
+try { document.documentElement.lang = lang.value } catch { /* no DOM */ }

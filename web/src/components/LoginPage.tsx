@@ -22,9 +22,9 @@ export function LoginPage(props: { onSuccess: () => void }) {
       const code_ = e instanceof ApiError ? e.code : ''
       err.value = code_ === 'bad_code' ? 'login.bad_code' : code_ === 'locked' ? 'login.locked' : 'login.error'
       code.value = ''
-      input.current?.focus()
     } finally {
       busy.value = false
+      setTimeout(() => input.current?.focus(), 0)
     }
   }
 

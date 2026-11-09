@@ -3,6 +3,7 @@ export const en = {
   'app.connected': 'Connected',
   'app.disconnected': 'Reconnecting…',
   'app.items': '{n} items',
+  'app.unreachable': 'Cannot reach LanDrop, retrying…',
   'app.loading': 'Loading…',
   'login.title': 'Enter access code',
   'login.hint': 'Enter the 4-digit code shown on the host computer.',

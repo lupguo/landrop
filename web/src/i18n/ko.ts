@@ -3,6 +3,7 @@ export const ko: Record<string, string> = {
   'app.connected': '연결됨',
   'app.disconnected': '다시 연결 중…',
   'app.items': '{n}개 항목',
+  'app.unreachable': 'LanDrop에 연결할 수 없습니다. 다시 시도 중…',
   'app.loading': '불러오는 중…',
   'login.title': '접속 코드 입력',
   'login.hint': '호스트 컴퓨터에 표시된 4자리 코드를 입력하세요.',

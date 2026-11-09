@@ -3,6 +3,7 @@ export const ja: Record<string, string> = {
   'app.connected': '接続済み',
   'app.disconnected': '再接続中…',
   'app.items': '{n} 件',
+  'app.unreachable': 'LanDrop に接続できません。再試行中…',
   'app.loading': '読み込み中…',
   'login.title': 'アクセスコードを入力',
   'login.hint': 'ホストのコンピューターに表示されている 4 桁のコードを入力してください。',
