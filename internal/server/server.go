@@ -51,7 +51,8 @@ func New(d Deps) http.Handler {
 	s := &server{Deps: d}
 
 	// Middleware: s.session (valid session required), s.origin (same-origin
-	// writes), s.hostOnly (loopback host role).
+	// writes), s.hostOnly (loopback host role), s.local (loopback + instance
+	// secret, for `landrop send`).
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/auth", s.origin(s.handleAuth))
 	mux.HandleFunc("GET /api/me", s.session(s.handleMe))
@@ -71,6 +72,8 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /events", s.session(s.handleEvents))
 	mux.HandleFunc("GET /api/peers", s.session(s.handlePeers))
 	mux.HandleFunc("DELETE /api/peers/{peer_id}", s.session(s.origin(s.hostOnly(s.handleKick))))
+	mux.HandleFunc("POST /api/local/text", s.local(s.handleLocalText))
+	mux.HandleFunc("POST /api/local/upload", s.local(s.handleLocalUpload))
 	mux.HandleFunc("/", s.handleRoot) // GET /?t= token login, else Deps.Web
 
 	return securityHeaders(mux)
