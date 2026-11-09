@@ -37,7 +37,6 @@ func multipartBody(t *testing.T, filename, ctype string, data []byte) (*bytes.Bu
 	return &buf, mw.FormDataContentType()
 }
 
-
 func doUpload(t *testing.T, c *http.Client, base, filename, ctype string, data []byte) (*http.Response, []byte) {
 	t.Helper()
 	body, ct := multipartBody(t, filename, ctype, data)
@@ -96,6 +95,7 @@ func TestUploadDownloadRoundTrip(t *testing.T) {
 func TestUploadOddFilenames(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{`../../x`, "x"}, {`a/b\c.txt`, "c.txt"}, {`日志 "v2".log`, `日志 "v2".log`}, {``, "file"},
+		{`a'b*(1);50%.txt`, `a'b*(1);50%.txt`},
 	} {
 		ts, d := newTestServer(t, nil)
 		c := login(t, ts)
@@ -139,6 +139,19 @@ func TestUploadTooLarge(t *testing.T) {
 	}
 	if f := storeFiles(t, d.Store.Dir()); len(f) != 0 {
 		t.Fatalf("leftover %v", f)
+	}
+}
+
+func TestUploadDiskFull(t *testing.T) {
+	old := freeSpace
+	freeSpace = func(string) (uint64, error) { return 1 << 20, nil }
+	defer func() { freeSpace = old }()
+	ts, d := newTestServer(t, nil)
+	c := login(t, ts)
+	resp, b := doUpload(t, c, ts.URL, "a.bin", "", make([]byte, 1000))
+	wantErr(t, resp, b, 507, "disk_full")
+	if len(d.Store.List(0)) != 0 || len(storeFiles(t, d.Store.Dir())) != 0 {
+		t.Fatal("leftovers")
 	}
 }
 
@@ -223,6 +236,17 @@ func TestInlineOnlyForSafeImages(t *testing.T) {
 		return it.ID
 	}
 	png, svg := up("a.png", "image/png"), up("a.svg", "image/svg+xml")
+	for _, mt := range []string{"image/png; charset=x", "IMAGE/PNG"} {
+		id := up("b.png", mt)
+		r, _ := do(t, c, ts, "GET", "/api/items/"+id+"/raw?inline=1", "")
+		if !strings.HasPrefix(r.Header.Get("Content-Disposition"), "inline") {
+			t.Fatalf("%s: %v", mt, r.Header)
+		}
+	}
+	html := up("a.html", "text/html")
+	if r, _ := do(t, c, ts, "GET", "/api/items/"+html+"/raw?inline=1", ""); !strings.HasPrefix(r.Header.Get("Content-Disposition"), "attachment") {
+		t.Fatalf("html: %v", r.Header)
+	}
 	r, _ := do(t, c, ts, "GET", "/api/items/"+png+"/raw?inline=1", "")
 	if !strings.HasPrefix(r.Header.Get("Content-Disposition"), "inline") || r.Header.Get("Content-Type") != "image/png" {
 		t.Fatalf("png: %v", r.Header)
@@ -272,10 +296,9 @@ func TestContentDisposition(t *testing.T) {
 func TestRangeDownload(t *testing.T) {
 	ts, _ := newTestServer(t, nil)
 	c := login(t, ts)
-	resp, b := doUpload(t, c, ts.URL, "r.bin", "", []byte("0123456789abcdef"))
+	_, b := doUpload(t, c, ts.URL, "r.bin", "", []byte("0123456789abcdef"))
 	var it store.Item
 	decode(t, b, &it)
-	_ = resp
 	r, body := do(t, c, ts, "GET", "/api/items/"+it.ID+"/raw", "", "Range", "bytes=0-9")
 	if r.StatusCode != 206 || string(body) != "0123456789" {
 		t.Fatalf("%d %q", r.StatusCode, body)

@@ -6,12 +6,15 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"net/url"
 	"strings"
+	"syscall"
 
 	"github.com/lupguo/landrop/internal/diskfree"
 	"github.com/lupguo/landrop/internal/store"
 )
+
+// freeSpace is swappable in tests. A Free error deliberately fails open.
+var freeSpace = diskfree.Free
 
 const diskReserve = 64 << 20
 
@@ -23,7 +26,7 @@ var inlineMIMEs = map[string]bool{
 // streamed straight to disk.
 func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if r.ContentLength > 0 {
-		free, err := diskfree.Free(s.Store.Dir())
+		free, err := freeSpace(s.Store.Dir())
 		if err == nil && free < uint64(r.ContentLength)+diskReserve {
 			writeErr(w, http.StatusInsufficientStorage, "disk_full")
 			return
@@ -54,6 +57,9 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case tooLarge(err):
 			writeErr(w, http.StatusRequestEntityTooLarge, "too_large")
+			return
+		case errors.Is(err, syscall.ENOSPC):
+			writeErr(w, http.StatusInsufficientStorage, "disk_full")
 			return
 		case err != nil:
 			// Aborted or broken body: AddFile already removed its .part file.
@@ -96,7 +102,11 @@ func (s *server) handleRaw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
-	h.Set("Content-Type", it.File.MIME)
+	ctype := it.File.MIME
+	if ctype == "" {
+		ctype = "application/octet-stream"
+	}
+	h.Set("Content-Type", ctype)
 	kind := "attachment"
 	if r.URL.Query().Get("inline") == "1" {
 		base, _, _ := mime.ParseMediaType(it.File.MIME)
@@ -117,11 +127,28 @@ func contentDisposition(kind, name string) string {
 	}
 	var b strings.Builder
 	for _, r := range name {
-		if r > 0x7e || r < 0x20 || r == '"' || r == '\\' {
+		if r > 0x7e || r < 0x20 || r == '"' || r == '\\' || r == '%' {
 			b.WriteByte('_')
 		} else {
 			b.WriteRune(r)
 		}
 	}
-	return fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", b.String(), url.PathEscape(name))
+	return fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", b.String(), pctEncode(name))
+}
+
+// pctEncode percent-encodes every byte except RFC 5987 attr-chars.
+func pctEncode(s string) string {
+	const hexd = "0123456789ABCDEF"
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.IndexByte("!#$&+.^_`|~-", c) >= 0 {
+			b.WriteByte(c)
+		} else {
+			b.WriteByte('%')
+			b.WriteByte(hexd[c>>4])
+			b.WriteByte(hexd[c&15])
+		}
+	}
+	return b.String()
 }
