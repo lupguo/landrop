@@ -104,6 +104,16 @@ func (s *server) handleSharePage(w http.ResponseWriter, r *http.Request) {
 // handleShareRaw: GET /s/{id}/raw consumes one download.
 func (s *server) handleShareRaw(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if r.Method == http.MethodHead {
+		// Probes must not spend a download.
+		_, it, ok := s.liveShare(id)
+		if !ok {
+			writeErr(w, http.StatusGone, "gone")
+			return
+		}
+		s.serveItem(w, r, it, true)
+		return
+	}
 	// Check the item first so a missing item doesn't burn a count.
 	if _, _, ok := s.liveShare(id); !ok {
 		writeErr(w, http.StatusGone, "gone")

@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -104,6 +105,12 @@ func (s *server) serveItem(w http.ResponseWriter, r *http.Request, it store.Item
 			h.Set("Content-Disposition", contentDisposition("attachment", it.ID+".txt"))
 		}
 		h.Set("Cache-Control", "no-store")
+		if public {
+			h.Set("Content-Length", strconv.Itoa(len(it.Content)))
+			if r.Method == http.MethodHead {
+				return
+			}
+		}
 		io.WriteString(w, it.Content)
 		return
 	}
@@ -127,6 +134,16 @@ func (s *server) serveItem(w http.ResponseWriter, r *http.Request, it store.Item
 	}
 	h.Set("Content-Disposition", contentDisposition(kind, it.File.Name))
 	h.Set("Cache-Control", "no-store")
+	if public {
+		// Share links: no Range support, always a full 200 body.
+		r.Header.Del("Range")
+		r.Header.Del("If-Range")
+		h.Set("Content-Length", strconv.FormatInt(it.File.Size, 10))
+		if r.Method != http.MethodHead {
+			io.Copy(w, f)
+		}
+		return
+	}
 	http.ServeContent(w, r, "", it.CreatedAt, f)
 }
 

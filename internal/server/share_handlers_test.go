@@ -143,3 +143,64 @@ func TestQRHandler(t *testing.T) {
 		t.Fatalf("anon qr %d", resp.StatusCode)
 	}
 }
+
+func newShare(t *testing.T, ts *httptest.Server, c *http.Client, id string) string {
+	t.Helper()
+	_, b := do(t, c, ts, "POST", "/api/items/"+id+"/share", "{}")
+	var sh struct{ ID string }
+	decode(t, b, &sh)
+	return sh.ID
+}
+
+func TestShareHeadDoesNotConsume(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	sid := newShare(t, ts, c, uploadShared(t, ts, c, "hello"))
+	anon := &http.Client{}
+	for i := 0; i < 2; i++ {
+		resp, b := do(t, anon, ts, "HEAD", "/s/"+sid+"/raw", "")
+		if resp.StatusCode != 200 || len(b) != 0 || resp.Header.Get("Content-Length") != "5" ||
+			!strings.HasPrefix(resp.Header.Get("Content-Disposition"), "attachment") {
+			t.Fatalf("head %d %v", resp.StatusCode, resp.Header)
+		}
+	}
+	resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/raw", "")
+	if resp.StatusCode != 200 || string(b) != "hello" {
+		t.Fatalf("get %d %q", resp.StatusCode, b)
+	}
+	resp, _ = do(t, anon, ts, "HEAD", "/s/"+sid+"/raw", "")
+	if resp.StatusCode != 410 {
+		t.Fatalf("head after use %d", resp.StatusCode)
+	}
+}
+
+func TestShareRangeIgnored(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	sid := newShare(t, ts, c, uploadShared(t, ts, c, "0123456789abcdef"))
+	anon := &http.Client{}
+	resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/raw", "", "Range", "bytes=0-9")
+	if resp.StatusCode != 200 || string(b) != "0123456789abcdef" || resp.Header.Get("Accept-Ranges") == "bytes" {
+		t.Fatalf("range %d %q %v", resp.StatusCode, b, resp.Header)
+	}
+	resp, b = do(t, anon, ts, "GET", "/s/"+sid+"/raw", "")
+	wantErr(t, resp, b, 410, "gone")
+}
+
+func TestShareMetaText(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	_, b := do(t, c, ts, "POST", "/api/text", `{"content":"hi there"}`)
+	var it struct{ ID string }
+	decode(t, b, &it)
+	sid := newShare(t, ts, c, it.ID)
+	resp, b := do(t, &http.Client{}, ts, "GET", "/api/s/"+sid, "")
+	var m struct {
+		Type, Name, Mime string
+		Size, Remaining  int
+	}
+	decode(t, b, &m)
+	if resp.StatusCode != 200 || m.Type != "text" || m.Size != 8 || m.Mime != "text/plain" || m.Remaining != 1 {
+		t.Fatalf("meta %d %+v", resp.StatusCode, m)
+	}
+}
