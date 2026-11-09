@@ -15,6 +15,8 @@ func dirErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, dirbrowse.ErrOutside):
 		writeErr(w, http.StatusForbidden, "forbidden")
+	case errors.Is(err, dirbrowse.ErrInvalid):
+		writeErr(w, http.StatusBadRequest, "bad_request")
 	case errors.Is(err, os.ErrNotExist):
 		writeErr(w, http.StatusNotFound, "not_found")
 	default:
@@ -51,13 +53,7 @@ func (s *server) handleDirRaw(w http.ResponseWriter, r *http.Request) {
 		dirErr(w, err)
 		return
 	}
-	f, err := os.Open(p)
-	if err != nil {
-		dirErr(w, err)
-		return
-	}
-	defer f.Close()
-	fi, err := f.Stat()
+	fi, err := os.Stat(p)
 	if err != nil {
 		dirErr(w, err)
 		return
@@ -66,6 +62,17 @@ func (s *server) handleDirRaw(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "is_directory")
 		return
 	}
-	w.Header().Set("Content-Disposition", contentDisposition("attachment", fi.Name()))
-	http.ServeContent(w, r, fi.Name(), fi.ModTime(), f)
+	if !fi.Mode().IsRegular() {
+		writeErr(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		dirErr(w, err)
+		return
+	}
+	defer f.Close()
+	name := path.Base(cleanRel(r.URL.Query().Get("path")))
+	w.Header().Set("Content-Disposition", contentDisposition("attachment", name))
+	http.ServeContent(w, r, name, fi.ModTime(), f)
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -36,7 +37,7 @@ func TestDirEndpoints(t *testing.T) {
 		t.Fatalf("%d %+v", resp.StatusCode, l)
 	}
 	resp, b = do(t, c, ts, "GET", "/api/dir/raw?path=a.txt", "")
-	if resp.StatusCode != 200 || string(b) != "hello" || resp.Header.Get("Content-Disposition") == "" {
+	if resp.StatusCode != 200 || string(b) != "hello" || !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "attachment") {
 		t.Fatalf("%d %q %v", resp.StatusCode, b, resp.Header)
 	}
 	if resp, _ = do(t, c, ts, "GET", "/api/dir/raw?path=../x", ""); resp.StatusCode != 403 {
@@ -51,7 +52,36 @@ func TestDirEndpoints(t *testing.T) {
 
 	ts2, _ := newTestServer(t, nil)
 	c2 := login(t, ts2)
-	if resp, _ = do(t, c2, ts2, "GET", "/api/dir", ""); resp.StatusCode != 404 {
-		t.Fatal(resp.StatusCode)
+	for _, u := range []string{"/api/dir", "/api/dir/raw?path=a.txt"} {
+		if resp, _ = do(t, c2, ts2, "GET", u, ""); resp.StatusCode != 404 {
+			t.Fatal(u, resp.StatusCode)
+		}
+	}
+}
+
+func TestDirLoopAndEscapeStatuses(t *testing.T) {
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	outside, _ := filepath.EvalSymlinks(t.TempDir())
+	os.WriteFile(filepath.Join(outside, "secret"), []byte("s"), 0600)
+	if os.Symlink(filepath.Join(root, "l2"), filepath.Join(root, "l1")) != nil {
+		t.Skip("no symlinks")
+	}
+	os.Symlink(filepath.Join(root, "l1"), filepath.Join(root, "l2"))
+	os.Symlink(outside, filepath.Join(root, "link"))
+	os.WriteFile(filepath.Join(root, "a.txt"), []byte("x"), 0600)
+	ts, _ := newTestServer(t, func(d *Deps) { d.Dir = root })
+	c := login(t, ts)
+	for u, want := range map[string]int{
+		"/api/dir?path=l1/x":            400,
+		"/api/dir/raw?path=l1":          400,
+		"/api/dir?path=link/secret/x":   403,
+		"/api/dir?path=link/nope/x":     403,
+		"/api/dir/raw?path=link/secret": 403,
+		"/api/dir?path=a.txt/x":         404,
+		"/api/dir/raw?path=a.txt":       200,
+	} {
+		if resp, _ := do(t, c, ts, "GET", u, ""); resp.StatusCode != want {
+			t.Fatal(u, resp.StatusCode, want)
+		}
 	}
 }

@@ -3,16 +3,21 @@ package dirbrowse
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
 // ErrOutside is returned when a path resolves outside the root.
 var ErrOutside = errors.New("path outside root")
+
+// ErrInvalid is returned for malformed paths and symlink loops.
+var ErrInvalid = errors.New("invalid path")
 
 // Entry is one directory entry.
 type Entry struct {
@@ -26,6 +31,9 @@ type Entry struct {
 // followed and the result must be root itself or inside it, else ErrOutside.
 // A missing target yields an error wrapping os.ErrNotExist.
 func Resolve(root, rel string) (string, error) {
+	if strings.ContainsRune(rel, 0) {
+		return "", ErrInvalid
+	}
 	rel = strings.ReplaceAll(rel, "\\", "/")
 	c := path.Clean(rel)
 	if c == ".." || strings.HasPrefix(c, "../") {
@@ -42,19 +50,25 @@ func Resolve(root, rel string) (string, error) {
 	full := filepath.Join(realRoot, filepath.FromSlash(c))
 	p, err := filepath.EvalSymlinks(full)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			// Even a missing target must not hide an escaping symlink on the way.
-			for anc := filepath.Dir(full); ; anc = filepath.Dir(anc) {
-				if ap, aerr := filepath.EvalSymlinks(anc); aerr == nil {
-					if !inside(realRoot, ap) {
-						return "", ErrOutside
-					}
-					break
+		// Whatever the failure, a symlink on the way that escapes the root must
+		// win, so the error never reveals what exists outside.
+		for anc := filepath.Dir(full); ; anc = filepath.Dir(anc) {
+			if ap, aerr := filepath.EvalSymlinks(anc); aerr == nil {
+				if !inside(realRoot, ap) {
+					return "", ErrOutside
 				}
-				if anc == filepath.Dir(anc) {
-					break
-				}
+				break
 			}
+			if anc == filepath.Dir(anc) {
+				break
+			}
+		}
+		switch {
+		case errors.Is(err, os.ErrNotExist), errors.Is(err, syscall.ENOTDIR):
+			return "", fmt.Errorf("%w: %s", os.ErrNotExist, rel)
+		case errors.Is(err, syscall.ELOOP), errors.Is(err, syscall.EINVAL),
+			strings.Contains(err.Error(), "too many links"): // Go's own loop error has no errno
+			return "", ErrInvalid
 		}
 		return "", err
 	}

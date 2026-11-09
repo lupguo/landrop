@@ -69,3 +69,48 @@ func TestListHidesEscapingSymlink(t *testing.T) {
 		t.Fatal(es)
 	}
 }
+
+func TestResolveNoExistenceOracle(t *testing.T) {
+	root, outside := mkRoot(t)
+	os.WriteFile(filepath.Join(outside, "secret"), []byte("s"), 0600)
+	os.WriteFile(filepath.Join(outside, "realfile"), []byte("s"), 0600)
+	for _, rel := range []string{"link/secret/x", "link/nope/x", "link/realfile", "link/secret", "..\\x", "a\x00b/../../.."} {
+		if p, err := Resolve(root, rel); !errors.Is(err, ErrOutside) && !errors.Is(err, ErrInvalid) {
+			t.Fatal(rel, p, err)
+		}
+	}
+	for _, rel := range []string{"link/secret/x", "link/nope/x", "link/realfile", "..\\x"} {
+		if _, err := Resolve(root, rel); !errors.Is(err, ErrOutside) {
+			t.Fatal(rel, err)
+		}
+	}
+	// ENOTDIR inside the root is plain not-found.
+	if _, err := Resolve(root, "a.txt/x"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal(err)
+	}
+}
+
+func TestResolveSiblingPrefix(t *testing.T) {
+	base, _ := filepath.EvalSymlinks(t.TempDir())
+	root := filepath.Join(base, "r")
+	sib := filepath.Join(base, "rX")
+	os.Mkdir(root, 0700)
+	os.Mkdir(sib, 0700)
+	if err := os.Symlink(sib, filepath.Join(root, "s")); err != nil {
+		t.Skip(err)
+	}
+	if _, err := Resolve(root, "s"); !errors.Is(err, ErrOutside) {
+		t.Fatal(err)
+	}
+}
+
+func TestResolveLoop(t *testing.T) {
+	root, _ := mkRoot(t)
+	if err := os.Symlink(filepath.Join(root, "l2"), filepath.Join(root, "l1")); err != nil {
+		t.Skip(err)
+	}
+	os.Symlink(filepath.Join(root, "l1"), filepath.Join(root, "l2"))
+	if _, err := Resolve(root, "l1/x"); !errors.Is(err, ErrInvalid) {
+		t.Fatal(err)
+	}
+}
