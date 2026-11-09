@@ -195,14 +195,16 @@ func TestRunEndToEnd(t *testing.T) {
 		t.Fatal("no banner")
 	}
 	m := regexp.MustCompile(`^http://[0-9.]+:(\d+)/\?t=([0-9a-f]{32})$`).FindStringSubmatch(b.TokenURL)
-	if m == nil || m[1] != fmt.Sprint(cfg.Port) || len(b.Code) != 4 || b.MDNSErr == nil || b.MDNSHost != "" || b.Version == "" || b.Port != cfg.Port {
-		t.Fatalf("banner %+v", b)
+	// freePort's port may be taken by a concurrent test process before Run
+	// listens; Listen then moves up, so the bound port is the source of truth.
+	if m == nil || m[1] != fmt.Sprint(b.Port) || len(b.Code) != 4 || b.MDNSErr == nil || b.MDNSHost != "" || b.Version == "" || b.Port < cfg.Port || b.Port >= cfg.Port+10 {
+		t.Fatalf("banner %+v (requested port %d)", b, cfg.Port)
 	}
 	if !strings.Contains(out.String(), "Access code: "+b.Code) {
 		t.Fatalf("banner output:\n%s", out.String())
 	}
 	c := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	resp, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/?t=%s", cfg.Port, m[2]))
+	resp, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/?t=%s", b.Port, m[2]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +213,7 @@ func TestRunEndToEnd(t *testing.T) {
 		t.Fatal("token login status", resp.StatusCode)
 	}
 	// Hold an SSE stream open across shutdown: it must not stall Run.
-	evReq, _ := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d/events", cfg.Port), nil)
+	evReq, _ := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d/events", b.Port), nil)
 	for _, ck := range resp.Cookies() {
 		evReq.AddCookie(ck)
 	}
