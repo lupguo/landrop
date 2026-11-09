@@ -82,21 +82,32 @@ func tooLarge(err error) bool {
 
 // handleRaw: GET /api/items/{id}/raw[?inline=1].
 func (s *server) handleRaw(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	it, ok := s.Store.Get(id)
+	it, ok := s.Store.Get(r.PathValue("id"))
 	if !ok {
 		writeErr(w, http.StatusNotFound, "not_found")
 		return
 	}
+	s.serveItem(w, r, it, false)
+}
+
+// serveItem writes an item's bytes. public (share links) forces attachment
+// for files and serves text inline as text/plain so the landing page can
+// fetch it; otherwise text is an attachment and files honour ?inline=1 for
+// safe image types.
+func (s *server) serveItem(w http.ResponseWriter, r *http.Request, it store.Item, public bool) {
 	h := w.Header()
 	if it.Type == store.KindText {
 		h.Set("Content-Type", "text/plain; charset=utf-8")
-		h.Set("Content-Disposition", contentDisposition("attachment", id+".txt"))
+		if public {
+			h.Set("Content-Disposition", "inline")
+		} else {
+			h.Set("Content-Disposition", contentDisposition("attachment", it.ID+".txt"))
+		}
 		h.Set("Cache-Control", "no-store")
 		io.WriteString(w, it.Content)
 		return
 	}
-	f, it, err := s.Store.Open(id)
+	f, it, err := s.Store.Open(it.ID)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "not_found")
 		return
@@ -108,7 +119,7 @@ func (s *server) handleRaw(w http.ResponseWriter, r *http.Request) {
 	}
 	h.Set("Content-Type", ctype)
 	kind := "attachment"
-	if r.URL.Query().Get("inline") == "1" {
+	if !public && r.URL.Query().Get("inline") == "1" {
 		base, _, _ := mime.ParseMediaType(it.File.MIME)
 		if inlineMIMEs[strings.ToLower(base)] {
 			kind = "inline"
