@@ -1,0 +1,6 @@
+.superpowers/
+node_modules/
+web/node_modules/
+/bin/
+/dist/
+.DS_Store
