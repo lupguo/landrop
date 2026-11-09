@@ -180,3 +180,54 @@ func (w *secWriter) Flush() {
 	}
 	http.NewResponseController(w.ResponseWriter).Flush()
 }
+
+// hostCheck defends --no-auth mode against DNS rebinding: a page on
+// attacker.example whose name later resolves to this machine would otherwise
+// be same-origin and fully authorized. Only IP literals, localhost, the mDNS
+// name and the OS hostname (bare or .local) are accepted, case-insensitively
+// and ignoring the port; anything else gets 421 bad_host. In code mode the
+// session cookie (SameSite=Strict, bound to the real origin) already blocks
+// this, so no check is done.
+func (s *server) hostCheck(next http.Handler) http.Handler {
+	if !s.NoAuth {
+		return next
+	}
+	allowed := map[string]bool{"localhost": true}
+	add := func(name string) {
+		name = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(name)), ".")
+		if name == "" {
+			return
+		}
+		allowed[name] = true
+		if !strings.HasSuffix(name, ".local") {
+			allowed[name+".local"] = true
+		}
+	}
+	add(s.MDNSName)
+	if u, err := url.Parse(s.MDNSURL); err == nil && s.MDNSURL != "" {
+		add(u.Hostname())
+	}
+	add(s.Hostname)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !allowedHost(r.Host, allowed) {
+			writeErr(w, http.StatusMisdirectedRequest, "bad_host")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func allowedHost(hostport string, allowed map[string]bool) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	if i := strings.IndexByte(host, '%'); i >= 0 { // IPv6 zone
+		host = host[:i]
+	}
+	if net.ParseIP(host) != nil {
+		return true
+	}
+	return allowed[strings.TrimSuffix(strings.ToLower(host), ".")]
+}

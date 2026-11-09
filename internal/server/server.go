@@ -23,6 +23,7 @@ type Deps struct {
 	MaxSize     int64
 	PublicBase  string // e.g. "http://192.168.1.23:8848"
 	MDNSURL     string
+	MDNSName    string // mDNS instance name (e.g. "drop"); "" → host of MDNSURL
 	Dir         string // --dir root or ""
 	LocalSecret string
 	Hostname    string
@@ -53,19 +54,21 @@ func New(d Deps) http.Handler {
 	}
 	s := &server{Deps: d}
 
-	// Middleware: s.session (valid session required), s.origin (same-origin
-	// writes), s.hostOnly (loopback host role), s.local (loopback + instance
-	// secret, for `landrop send`).
+	// Middleware: s.hostCheck (NoAuth only: Host allowlist against DNS
+	// rebinding, wraps everything), s.origin (same-origin writes; always
+	// outside s.session so a cross-origin write never creates a NoAuth
+	// session), s.session (valid session required), s.hostOnly (loopback host
+	// role), s.local (loopback + instance secret, for `landrop send`).
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/auth", s.origin(s.handleAuth))
 	mux.HandleFunc("GET /api/me", s.session(s.handleMe))
 	mux.HandleFunc("GET /api/items", s.session(s.handleListItems))
-	mux.HandleFunc("POST /api/text", s.session(s.origin(s.handlePostText)))
-	mux.HandleFunc("POST /api/upload", s.session(s.origin(s.handleUpload)))
+	mux.HandleFunc("POST /api/text", s.origin(s.session(s.handlePostText)))
+	mux.HandleFunc("POST /api/upload", s.origin(s.session(s.handleUpload)))
 	mux.HandleFunc("GET /api/items/{id}/raw", s.session(s.handleRaw))
-	mux.HandleFunc("DELETE /api/items/{id}", s.session(s.origin(s.handleDeleteItem)))
-	mux.HandleFunc("DELETE /api/items", s.session(s.origin(s.handleClearItems)))
-	mux.HandleFunc("POST /api/items/{id}/share", s.session(s.origin(s.handleCreateShare)))
+	mux.HandleFunc("DELETE /api/items/{id}", s.origin(s.session(s.handleDeleteItem)))
+	mux.HandleFunc("DELETE /api/items", s.origin(s.session(s.handleClearItems)))
+	mux.HandleFunc("POST /api/items/{id}/share", s.origin(s.session(s.handleCreateShare)))
 	mux.HandleFunc("GET /api/qr", s.session(s.handleQR))
 	mux.HandleFunc("GET /api/s/{id}", s.handleShareMeta)
 	mux.HandleFunc("GET /s/{id}", s.handleSharePage)
@@ -74,10 +77,10 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/dir/raw", s.session(s.handleDirRaw))
 	mux.HandleFunc("GET /events", s.session(s.handleEvents))
 	mux.HandleFunc("GET /api/peers", s.session(s.handlePeers))
-	mux.HandleFunc("DELETE /api/peers/{peer_id}", s.session(s.origin(s.hostOnly(s.handleKick))))
+	mux.HandleFunc("DELETE /api/peers/{peer_id}", s.origin(s.session(s.hostOnly(s.handleKick))))
 	mux.HandleFunc("POST /api/local/text", s.local(s.handleLocalText))
 	mux.HandleFunc("POST /api/local/upload", s.local(s.handleLocalUpload))
 	mux.HandleFunc("/", s.handleRoot) // GET /?t= token login, else Deps.Web
 
-	return securityHeaders(mux)
+	return securityHeaders(s.hostCheck(mux))
 }

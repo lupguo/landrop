@@ -164,6 +164,7 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 		MaxSize:      cfg.MaxSize,
 		PublicBase:   publicBase,
 		MDNSURL:      mdnsURL,
+		MDNSName:     cfg.Name,
 		Dir:          cfg.Dir,
 		LocalSecret:  secret,
 		Hostname:     hostname(),
