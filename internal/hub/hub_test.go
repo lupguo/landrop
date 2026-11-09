@@ -26,29 +26,67 @@ func TestSubscribeGapNeedsResync(t *testing.T) {
 	}
 }
 
+func recv(t *testing.T, c <-chan Event) Event {
+	t.Helper()
+	select {
+	case ev := <-c:
+		return ev
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for event")
+		return Event{}
+	}
+}
+
+func waitDone(t *testing.T, d <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-d:
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for Done")
+	}
+}
+
 func TestSlowSubscriberDropped(t *testing.T) {
 	h := New(1024)
 	slow, _, _ := h.Subscribe(Peer{ID: "slow"}, 0)
 	fast, _, _ := h.Subscribe(Peer{ID: "fast"}, 0)
-	got := 0
-	done := make(chan struct{})
+	finished := make(chan struct{})
 	go func() {
-		for range fast.C {
-			got++
-			if got == 200 {
-				close(done)
-				return
+		defer close(finished)
+		for i := 0; i < 200; i++ {
+			h.Publish("x", i)
+			for { // skip presence events (peer.left of slow)
+				select {
+				case ev := <-fast.C:
+					if ev.Type != "x" {
+						continue
+					}
+					if ev.Data != i {
+						t.Errorf("event %d: got %v", i, ev.Data)
+						return
+					}
+				case <-time.After(time.Second):
+					t.Errorf("timeout waiting for event %d", i)
+					return
+				}
+				break
 			}
 		}
 	}()
-	for i := 0; i < 200; i++ {
-		h.Publish("x", i)
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("publish loop blocked")
 	}
-	<-done
 	select {
 	case <-slow.Done:
 	default:
 		t.Fatal("slow not dropped")
+	}
+	select {
+	case <-fast.Done:
+		t.Fatal("fast dropped")
+	default:
 	}
 }
 
@@ -56,15 +94,15 @@ func TestPeerJoinLeaveAndKick(t *testing.T) {
 	h := New(16)
 	obs, _, _ := h.Subscribe(Peer{ID: "obs"}, 0)
 	a, _, _ := h.Subscribe(Peer{ID: "a", Name: "Win"}, 0)
-	if ev := <-obs.C; ev.Type != "peer.joined" {
+	if ev := recv(t, obs.C); ev.Type != "peer.joined" {
 		t.Fatal(ev)
 	}
 	h.Kick("a")
-	if ev := <-a.C; ev.Type != "session.revoked" {
+	if ev := recv(t, a.C); ev.Type != "session.revoked" {
 		t.Fatal(ev)
 	}
-	<-a.Done
-	if ev := <-obs.C; ev.Type != "peer.left" {
+	waitDone(t, a.Done)
+	if ev := recv(t, obs.C); ev.Type != "peer.left" {
 		t.Fatal(ev)
 	}
 	if len(h.Peers()) != 1 {
@@ -99,7 +137,7 @@ func TestUnsubscribeIdempotentAndPeerLeftOnce(t *testing.T) {
 	obs, _, _ := h.Subscribe(Peer{ID: "obs"}, 0)
 	a1, _, _ := h.Subscribe(Peer{ID: "a"}, 0)
 	a2, _, _ := h.Subscribe(Peer{ID: "a"}, 0) // same peer, second tab
-	<-obs.C                                   // joined (only once)
+	recv(t, obs.C)                            // joined (only once)
 	h.Unsubscribe(a1)
 	h.Unsubscribe(a1)
 	select {
@@ -109,7 +147,7 @@ func TestUnsubscribeIdempotentAndPeerLeftOnce(t *testing.T) {
 	}
 	h.Unsubscribe(a2)
 	h.Unsubscribe(a2)
-	if ev := <-obs.C; ev.Type != "peer.left" {
+	if ev := recv(t, obs.C); ev.Type != "peer.left" {
 		t.Fatal(ev)
 	}
 	select {
@@ -140,7 +178,7 @@ func TestSlowDropPublishesLeftAndPeersSorted(t *testing.T) {
 		h.Publish("x", i)
 		drain()
 	}
-	<-slow.Done
+	waitDone(t, slow.Done)
 	h.Unsubscribe(slow) // no-op after drop
 	drain()
 	ps := h.Peers()
