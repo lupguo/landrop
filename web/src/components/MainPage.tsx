@@ -57,14 +57,18 @@ export function MainPage() {
       if (depth === 0) dragging.value = false
     }
     function onDragOver(e: DragEvent) {
-      // Always prevent default so a stray drop never navigates away from the app.
+      const files = hasFiles(e)
+      // Text/link drags into an editable field keep the browser default (drop inserts text).
+      if (!files && isEditable(e.target)) return
+      // Everything else: prevent default so a stray drop never navigates away from the app.
       e.preventDefault()
-      if (e.dataTransfer) e.dataTransfer.dropEffect = hasFiles(e) ? 'copy' : 'none'
+      if (e.dataTransfer) e.dataTransfer.dropEffect = files ? 'copy' : 'none'
     }
     function onDrop(e: DragEvent) {
-      e.preventDefault()
       depth = 0
       dragging.value = false
+      if (!hasFiles(e) && isEditable(e.target)) return
+      e.preventDefault()
       const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : []
       if (files.length) enqueue(files)
     }

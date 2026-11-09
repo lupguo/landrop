@@ -18,6 +18,7 @@ export const ja: Record<string, string> = {
   'share.stub': '共有ページ',
   'feed.collapse': '折りたたむ',
   'feed.expand': 'すべて表示（{n} 行）',
+  'feed.expand_plain': 'すべて表示',
   'topbar.online': '{n} 台オンライン',
   'topbar.peers': 'オンラインのデバイスを表示',
   'topbar.settings': '設定',

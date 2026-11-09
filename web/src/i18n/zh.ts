@@ -18,6 +18,7 @@ export const zh: Record<string, string> = {
   'share.stub': '分享页面',
   'feed.collapse': '收起',
   'feed.expand': '展开全部（{n} 行）',
+  'feed.expand_plain': '展开全部',
   'topbar.online': '{n} 台在线',
   'topbar.peers': '查看在线设备',
   'topbar.settings': '设置',

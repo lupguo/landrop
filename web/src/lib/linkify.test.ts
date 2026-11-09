@@ -16,3 +16,7 @@ test('linkify extra cases', () => {
   expect(linkify('ftp://x.y data:text/html,hi')).toEqual([{ text: 'ftp://x.y data:text/html,hi' }])
   expect(linkify('see (https://a.b/c_(d))')).toEqual([{ text: 'see (' }, { text: 'https://a.b/c_(d', href: 'https://a.b/c_(d' }, { text: '))' }])
 })
+
+test('prose with a URL is linkified', () => {
+  expect(linkify('Got this from Bob\nhttps://x.y')).toEqual([{ text: 'Got this from Bob\n' }, { text: 'https://x.y', href: 'https://x.y' }])
+})

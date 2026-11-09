@@ -18,6 +18,7 @@ export const en = {
   'share.stub': 'Share page',
   'feed.collapse': 'Collapse',
   'feed.expand': 'Show all ({n} lines)',
+  'feed.expand_plain': 'Show all',
   'topbar.online': '{n} online',
   'topbar.peers': 'Show online devices',
   'topbar.settings': 'Settings',

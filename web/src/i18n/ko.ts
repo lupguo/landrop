@@ -18,6 +18,7 @@ export const ko: Record<string, string> = {
   'share.stub': '공유 페이지',
   'feed.collapse': '접기',
   'feed.expand': '전체 보기 ({n}줄)',
+  'feed.expand_plain': '전체 보기',
   'topbar.online': '{n}대 온라인',
   'topbar.peers': '온라인 기기 보기',
   'topbar.settings': '설정',
