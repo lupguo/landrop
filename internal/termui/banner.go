@@ -16,7 +16,7 @@ type BannerInfo struct {
 	Lang     string
 	Addrs    []discovery.Addr
 	Port     int
-	MDNSHost string // "" if failed
+	MDNSHost string // e.g. "drop.local"; "" if failed. Shown as http://<host>:<port>.
 	MDNSErr  error
 	Code     string
 	TokenURL string
@@ -47,7 +47,7 @@ func Print(w io.Writer, b BannerInfo) {
 	case b.MDNSErr != nil:
 		sb.WriteString(t(i18n.KeyHintMDNSFailed, b.MDNSErr.Error()) + "\n")
 	case b.MDNSHost != "":
-		sb.WriteString(t(i18n.KeyBannerMDNS, b.MDNSHost) + "\n")
+		sb.WriteString(t(i18n.KeyBannerMDNS, fmt.Sprintf("http://%s:%d", b.MDNSHost, b.Port)) + "\n")
 	}
 	if b.NoAuth {
 		sb.WriteString("\x1b[33m" + t(i18n.KeyBannerNoAuth) + "\x1b[0m\n")
@@ -56,7 +56,7 @@ func Print(w io.Writer, b BannerInfo) {
 	}
 	if b.TokenURL != "" {
 		if art, err := qr.ASCII(b.TokenURL); err == nil {
-			fmt.Fprintf(&sb, "\n%s\n%s\n", t(i18n.KeyBannerScan), art)
+			fmt.Fprintf(&sb, "\n%s\n  %s\n%s\n", t(i18n.KeyBannerScan), b.TokenURL, art)
 		}
 	}
 	sb.WriteString("\n" + t(i18n.KeyHintAPIsolation) + "\n")

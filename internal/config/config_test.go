@@ -1,9 +1,13 @@
 package config
 
 import (
+	"flag"
 	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/lupguo/landrop/internal/i18n"
 )
 
 func TestDefaults(t *testing.T) {
@@ -50,5 +54,31 @@ func TestBadPortAndDir(t *testing.T) {
 	}
 	if _, err := Parse([]string{"--dir", "/no/such/dir"}, os.Getenv); err == nil {
 		t.Fatal()
+	}
+}
+
+func TestUsageListsEveryFlagLocalized(t *testing.T) {
+	for _, lang := range []string{"en", "zh", "ja", "ko"} {
+		var b strings.Builder
+		Usage(&b, lang)
+		s := b.String()
+		fs := newFlagSet(&Config{}, new(string), func(string) string { return "" })
+		fs.VisitAll(func(f *flag.Flag) {
+			if !strings.Contains(s, "--"+f.Name) {
+				t.Errorf("%s: --%s missing", lang, f.Name)
+			}
+			desc := i18n.T(lang, f.Usage)
+			if desc == f.Usage {
+				t.Errorf("%s: flag %s usage %q is not an i18n key", lang, f.Name, f.Usage)
+			}
+			if !strings.Contains(s, desc) {
+				t.Errorf("%s: description for --%s missing", lang, f.Name)
+			}
+		})
+		for _, want := range []string{"8848", `"drop"`, "24h0m0s", `"4GB"`, "-h, --help", "landrop send"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("%s: %q missing from usage:\n%s", lang, want, s)
+			}
+		}
 	}
 }

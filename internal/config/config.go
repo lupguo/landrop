@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/lupguo/landrop/internal/i18n"
 )
 
 type Config struct {
@@ -32,23 +34,7 @@ var allowedLangs = []string{"en", "zh", "ja", "ko"}
 func Parse(args []string, getenv func(string) string) (Config, error) {
 	var c Config
 	var maxSize string
-	fs := flag.NewFlagSet("landrop", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	defLang := "en"
-	if v := getenv("LANDROP_LANG"); v != "" {
-		defLang = v
-	}
-	fs.IntVar(&c.Port, "port", 8848, "listen port")
-	fs.StringVar(&c.Name, "name", "drop", "mDNS name")
-	fs.StringVar(&c.Dir, "dir", "", "temp/storage directory")
-	fs.BoolVar(&c.NoAuth, "no-auth", false, "disable access code")
-	fs.DurationVar(&c.TTL, "ttl", 24*time.Hour, "item time to live")
-	fs.BoolVar(&c.Keep, "keep", false, "keep temp files on exit")
-	fs.StringVar(&maxSize, "max-size", "4GB", "max file size")
-	fs.BoolVar(&c.NoSave, "no-save", false, "disable autosave")
-	fs.BoolVar(&c.NoOpen, "no-open", false, "do not open browser")
-	fs.StringVar(&c.Lang, "lang", defLang, "language (en|zh|ja|ko)")
-	fs.BoolVar(&c.ShowVersion, "version", false, "print version")
+	fs := newFlagSet(&c, &maxSize, getenv)
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
@@ -87,6 +73,66 @@ func Parse(args []string, getenv func(string) string) (Config, error) {
 		c.Dir = abs
 	}
 	return c, nil
+}
+
+// newFlagSet defines LanDrop's flags on c and maxSize. Each flag's usage
+// string is an i18n key (rendered by Usage). The --lang default honours
+// LANDROP_LANG from getenv.
+func newFlagSet(c *Config, maxSize *string, getenv func(string) string) *flag.FlagSet {
+	fs := flag.NewFlagSet("landrop", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	defLang := "en"
+	if v := getenv("LANDROP_LANG"); v != "" {
+		defLang = v
+	}
+	fs.IntVar(&c.Port, "port", 8848, i18n.KeyFlagPort)
+	fs.StringVar(&c.Name, "name", "drop", i18n.KeyFlagName)
+	fs.StringVar(&c.Dir, "dir", "", i18n.KeyFlagDir)
+	fs.BoolVar(&c.NoAuth, "no-auth", false, i18n.KeyFlagNoAuth)
+	fs.DurationVar(&c.TTL, "ttl", 24*time.Hour, i18n.KeyFlagTTL)
+	fs.BoolVar(&c.Keep, "keep", false, i18n.KeyFlagKeep)
+	fs.StringVar(maxSize, "max-size", "4GB", i18n.KeyFlagMaxSize)
+	fs.BoolVar(&c.NoSave, "no-save", false, i18n.KeyFlagNoSave)
+	fs.BoolVar(&c.NoOpen, "no-open", false, i18n.KeyFlagNoOpen)
+	fs.StringVar(&c.Lang, "lang", defLang, i18n.KeyFlagLang)
+	fs.BoolVar(&c.ShowVersion, "version", false, i18n.KeyFlagVersion)
+	return fs
+}
+
+// Usage writes the localized help text, generated from the real flag set,
+// to w. Flags are listed alphabetically (flag.VisitAll) with their defaults.
+func Usage(w io.Writer, lang string) {
+	var c Config
+	var maxSize string
+	fs := newFlagSet(&c, &maxSize, func(string) string { return "" })
+	type row struct{ left, desc string }
+	var rows []row
+	width := len("-h, --help")
+	fs.VisitAll(func(f *flag.Flag) {
+		typ, _ := flag.UnquoteUsage(f)
+		left := "--" + f.Name
+		if typ != "" {
+			left += " " + typ
+		}
+		desc := i18n.T(lang, f.Usage)
+		if def := f.DefValue; def != "" && def != "false" {
+			if typ == "string" {
+				def = strconv.Quote(def)
+			}
+			desc += " " + i18n.T(lang, i18n.KeyUsageDefault, def)
+		}
+		if len(left) > width {
+			width = len(left)
+		}
+		rows = append(rows, row{left, desc})
+	})
+	rows = append(rows, row{"-h, --help", i18n.T(lang, i18n.KeyUsageHelp)})
+	var sb strings.Builder
+	sb.WriteString(i18n.T(lang, i18n.KeyUsageHeader) + "\n")
+	for _, r := range rows {
+		fmt.Fprintf(&sb, "  %-*s  %s\n", width, r.left, r.desc)
+	}
+	io.WriteString(w, sb.String())
 }
 
 // ParseSize parses sizes like "4GB", "512mb", "1KiB", "123" (bytes).

@@ -18,44 +18,32 @@ import (
 	"github.com/lupguo/landrop/internal/version"
 )
 
-const usage = `Usage:
-  landrop [flags]               start the LanDrop server
-  landrop send <file>|-         send a file (or stdin) to the running server
-
-Flags:
-  --port int          listen port; tries +1 up to 10 times if busy (default 8848)
-  --name string       mDNS name, reachable as <name>.local (default "drop")
-  --dir string        directory to expose read-only for browsing (default none)
-  --no-auth           disable the access code (anyone on the LAN can join)
-  --ttl duration      item time to live (default 24h0m0s)
-  --keep              keep temporary files on exit
-  --max-size string   maximum file size (default "4GB")
-  --no-save           do not autosave received files to ~/Downloads/LanDrop
-  --no-open           do not open the browser on start
-  --lang string       terminal language: en|zh|ja|ko (default "en", env LANDROP_LANG)
-  --version           print version and exit
-  -h, --help          show this help
-`
+// envLang is LANDROP_LANG if it is a supported language, else "en".
+func envLang() string {
+	if l := os.Getenv("LANDROP_LANG"); slices.Contains(i18n.Langs, l) {
+		return l
+	}
+	return "en"
+}
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "send" {
-		lang := os.Getenv("LANDROP_LANG")
-		if !slices.Contains(i18n.Langs, lang) {
-			lang = "en"
-		}
-		if err := sendcli.Run(os.Args[2:], os.Stdin, os.Stdout, lang); err != nil {
-			os.Exit(1)
+		if err := sendcli.Run(os.Args[2:], os.Stdin, os.Stdout, envLang()); err != nil {
+			os.Exit(1) // sendcli already printed the localized message
 		}
 		return
 	}
 
 	cfg, err := config.Parse(os.Args[1:], os.Getenv)
 	if errors.Is(err, flag.ErrHelp) {
-		fmt.Print(usage)
+		config.Usage(os.Stdout, envLang())
 		return
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "landrop: %v\n\n%s", err, usage)
+		lang := envLang()
+		fmt.Fprintln(os.Stderr, i18n.T(lang, i18n.KeyCLIError, err.Error()))
+		fmt.Fprintln(os.Stderr)
+		config.Usage(os.Stderr, lang)
 		os.Exit(2)
 	}
 	if cfg.ShowVersion {
@@ -67,7 +55,7 @@ func main() {
 	defer stop()
 	if err := app.Run(ctx, cfg, os.Stdout); err != nil {
 		stop()
-		fmt.Fprintf(os.Stderr, "landrop: %v\n", err)
+		fmt.Fprintln(os.Stderr, i18n.T(cfg.Lang, i18n.KeyCLIError, err.Error()))
 		os.Exit(1)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lupguo/landrop/internal/i18n"
 	"github.com/lupguo/landrop/internal/instance"
 	"github.com/lupguo/landrop/internal/store"
 )
@@ -120,11 +121,16 @@ func TestSendUsageAndMissingFile(t *testing.T) {
 	setHome(t)
 	fakeServer(t, 201, `{}`)
 	var out bytes.Buffer
-	if err := Run(nil, nil, &out, "en"); err == nil || !strings.Contains(out.String(), "usage") {
+	if err := Run(nil, nil, &out, "zh"); err == nil || !strings.Contains(out.String(), i18n.T("zh", i18n.KeySendUsage)) {
 		t.Fatal(err, out.String())
 	}
 	out.Reset()
-	if err := Run([]string{filepath.Join(t.TempDir(), "nope")}, nil, &out, "en"); err == nil {
-		t.Fatal("want error for missing file")
+	if err := Run([]string{filepath.Join(t.TempDir(), "nope")}, nil, &out, "en"); err == nil || !strings.HasPrefix(out.String(), "Send failed: ") {
+		t.Fatal("want error for missing file", out.String())
+	}
+	out.Reset()
+	d := t.TempDir()
+	if err := Run([]string{d}, nil, &out, "en"); err == nil || !strings.Contains(out.String(), i18n.T("en", i18n.KeySendIsDir, d)) {
+		t.Fatal(err, out.String())
 	}
 }

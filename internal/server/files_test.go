@@ -179,13 +179,14 @@ func TestUploadOnFileStored(t *testing.T) {
 	ts, _ := newTestServer(t, func(d *Deps) { d.OnFileStored = func(it store.Item) { got <- it } })
 	c := login(t, ts)
 	doUpload(t, c, ts.URL, "a.txt", "", []byte("x"))
+	// Called synchronously, before the response is written.
 	select {
 	case it := <-got:
 		if it.File.Name != "a.txt" {
 			t.Fatal(it)
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("OnFileStored not called")
+	default:
+		t.Fatal("OnFileStored not called before the response")
 	}
 }
 

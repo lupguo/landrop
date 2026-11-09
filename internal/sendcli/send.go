@@ -19,14 +19,12 @@ import (
 	"github.com/lupguo/landrop/internal/store"
 )
 
-const usage = "usage: landrop send <file>|-"
-
 // Run executes `landrop send`. args excludes the "send" word. All user-facing
 // messages, including errors, are written to out; a non-nil error means the
 // send failed and the caller should exit non-zero.
 func Run(args []string, stdin io.Reader, out io.Writer, lang string) error {
 	if len(args) != 1 || args[0] == "" {
-		fmt.Fprintln(out, usage)
+		fmt.Fprintln(out, i18n.T(lang, i18n.KeySendUsage))
 		return errors.New("bad arguments")
 	}
 	info, err := instance.Read(instance.DefaultPath())
@@ -42,8 +40,7 @@ func Run(args []string, stdin io.Reader, out io.Writer, lang string) error {
 		}
 		buf, err := io.ReadAll(io.LimitReader(stdin, store.MaxText+1))
 		if err != nil {
-			fmt.Fprintln(out, err)
-			return err
+			return fail(out, lang, err)
 		}
 		if len(buf) <= store.MaxText {
 			req, err = http.NewRequest("POST", base+"/api/local/text", bytes.NewReader(buf))
@@ -57,19 +54,17 @@ func Run(args []string, stdin io.Reader, out io.Writer, lang string) error {
 	} else {
 		f, err := os.Open(args[0])
 		if err != nil {
-			fmt.Fprintln(out, err)
-			return err
+			return fail(out, lang, err)
 		}
 		defer f.Close()
 		st, err := f.Stat()
 		if err != nil {
-			fmt.Fprintln(out, err)
-			return err
+			return fail(out, lang, err)
 		}
 		if st.IsDir() {
-			err := fmt.Errorf("%s is a directory", args[0])
-			fmt.Fprintln(out, err)
-			return err
+			msg := i18n.T(lang, i18n.KeySendIsDir, args[0])
+			fmt.Fprintln(out, msg)
+			return errors.New(msg)
 		}
 		req, err = http.NewRequest("POST", base+"/api/local/upload?name="+url.QueryEscape(filepath.Base(args[0])), f)
 		if err != nil {
@@ -86,8 +81,7 @@ func Run(args []string, stdin io.Reader, out io.Writer, lang string) error {
 		if errors.As(err, &op) && op.Op == "dial" {
 			return notRunning(out, lang)
 		}
-		fmt.Fprintln(out, err)
-		return err
+		return fail(out, lang, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
@@ -98,12 +92,19 @@ func Run(args []string, stdin io.Reader, out io.Writer, lang string) error {
 		if e.Error == "" {
 			e.Error = resp.Status
 		}
-		fmt.Fprintln(out, e.Error)
-		return fmt.Errorf("send failed: %s", e.Error)
+		msg := i18n.T(lang, i18n.KeySendFailed, e.Error)
+		fmt.Fprintln(out, msg)
+		return errors.New(msg)
 	}
 	io.Copy(io.Discard, resp.Body)
 	fmt.Fprintln(out, i18n.T(lang, i18n.KeySendOK))
 	return nil
+}
+
+// fail reports a local error (I/O, network) through send.failed.
+func fail(out io.Writer, lang string, err error) error {
+	fmt.Fprintln(out, i18n.T(lang, i18n.KeySendFailed, err.Error()))
+	return err
 }
 
 func notRunning(out io.Writer, lang string) error {

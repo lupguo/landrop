@@ -64,6 +64,14 @@ func TestLocalAPI(t *testing.T) {
 		t.Fatalf("upload status %d %s", resp.StatusCode, b)
 	}
 	decode(t, b, &it)
+	// The hook is called synchronously before the response, so the app can
+	// register the save before shutdown can race it.
+	select {
+	case got := <-stored:
+		stored <- got
+	default:
+		t.Fatal("OnFileStored not called before the response")
+	}
 	if it.Type != store.KindFile || it.File.Name != "x.log" || it.File.Size != 10 || it.From.Name != "testhost (CLI)" {
 		t.Fatalf("upload item %+v", it)
 	}

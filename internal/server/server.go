@@ -27,7 +27,10 @@ type Deps struct {
 	LocalSecret string
 	Hostname    string
 
-	OnFileStored func(store.Item) // autosave hook, may be nil
+	// OnFileStored is the autosave hook, may be nil. It is called
+	// synchronously after a file item is stored and before the response is
+	// written, so it must not block: do slow work in a goroutine.
+	OnFileStored func(store.Item)
 	Web          http.Handler
 	Now          func() time.Time
 	IsHost       func(*http.Request) bool // nil → RemoteAddr is loopback

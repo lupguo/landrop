@@ -60,6 +60,10 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 	// 1. listener
 	ln, port, err := Listen(cfg.Port, listenTries)
 	if err != nil {
+		// Keep only the OS error (e.g. "bind: permission denied") as detail.
+		if inner := errors.Unwrap(err); inner != nil {
+			err = inner
+		}
 		return fmt.Errorf("%s (%w)", i18n.T(cfg.Lang, i18n.KeyErrPortExhausted, cfg.Port, cfg.Port+listenTries-1), err)
 	}
 	defer ln.Close()
@@ -103,7 +107,7 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 	}
 	instPath := instance.DefaultPath()
 	if err := instance.Write(instPath, instance.Info{PID: os.Getpid(), Port: port, Secret: secret}); err != nil {
-		fmt.Fprintf(out, "instance file: %v\n", err)
+		fmt.Fprintln(out, i18n.T(cfg.Lang, i18n.KeyWarnInstanceFile, err.Error()))
 	}
 	removeInstance := sync.OnceFunc(func() {
 		// Only remove the file if it is still ours (a newer instance may
@@ -115,9 +119,11 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 	defer removeInstance()
 
 	// 6. server
-	// The server runs the hook in its own goroutine, so in-flight saves are
-	// counted under saveMu and shutdown waits for them before the store dir
-	// is removed. Saves that start after shutdown began are skipped.
+	// The server calls the hook synchronously from the upload handler, so the
+	// save is registered (saves.Add) before the response is written and thus
+	// before srv.Shutdown returns. Shutdown then waits for in-flight saves
+	// before the store dir is removed. A save arriving after that point (only
+	// possible if Shutdown timed out) is skipped and logged.
 	var (
 		saveMu     sync.Mutex
 		saveClosed bool
@@ -132,21 +138,23 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 			saveMu.Lock()
 			if saveClosed {
 				saveMu.Unlock()
+				fmt.Fprintln(out, i18n.T(cfg.Lang, i18n.KeyWarnAutosaveSkip, it.File.Name))
 				return
 			}
 			saves.Add(1)
 			saveMu.Unlock()
-			defer saves.Done()
-			home, err := os.UserHomeDir()
-			if err == nil {
-				_, err = autosave.Save(filepath.Join(st.Dir(), it.ID), it.File.Name, filepath.Join(home, "Downloads", "LanDrop"))
-			}
-			if err != nil {
-				fmt.Fprintf(out, "autosave %q: %v\n", it.File.Name, err)
-			}
+			go func() {
+				defer saves.Done()
+				home, err := os.UserHomeDir()
+				if err == nil {
+					_, err = autosave.Save(filepath.Join(st.Dir(), it.ID), it.File.Name, filepath.Join(home, "Downloads", "LanDrop"))
+				}
+				if err != nil {
+					fmt.Fprintln(out, i18n.T(cfg.Lang, i18n.KeyWarnAutosave, it.File.Name, err.Error()))
+				}
+			}()
 		}
 	}
-	hostname, _ := os.Hostname()
 	handler := server.New(server.Deps{
 		Store:        st,
 		Hub:          h,
@@ -158,7 +166,7 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 		MDNSURL:      mdnsURL,
 		Dir:          cfg.Dir,
 		LocalSecret:  secret,
-		Hostname:     hostname,
+		Hostname:     hostname(),
 		OnFileStored: onStored,
 		Web:          webui.Handler(),
 		Now:          time.Now,
@@ -214,7 +222,7 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 	// 9. browser
 	if !cfg.NoOpen {
 		if err := openBrowser(fmt.Sprintf("http://127.0.0.1:%d/?t=%s", port, au.Token())); err != nil {
-			fmt.Fprintf(out, "open browser: %v\n", err)
+			fmt.Fprintln(out, i18n.T(cfg.Lang, i18n.KeyWarnOpenBrowser, err.Error()))
 		}
 	}
 
@@ -262,6 +270,17 @@ func sweepOnce(st *store.Store, sh *share.Manager, h *hub.Hub) {
 		h.Publish("item.deleted", map[string]string{"id": id})
 	}
 	sh.Sweep()
+}
+
+var osHostname = os.Hostname
+
+// hostname names this machine for CLI-sent items, defaulting to "localhost".
+func hostname() string {
+	h, err := osHostname()
+	if err != nil || h == "" {
+		return "localhost"
+	}
+	return h
 }
 
 func randomHex(n int) (string, error) {

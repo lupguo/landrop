@@ -303,3 +303,33 @@ func TestListenSkipsPortHeldByIPv4Socket(t *testing.T) {
 	}
 	l2.Close()
 }
+
+// Another program holding only 127.0.0.1:p must make p busy: otherwise the
+// browser launch (?t=<token>) and `landrop send` (secret header), which both
+// dial 127.0.0.1, would reach that program instead of LanDrop.
+func TestListenSkipsPortHeldOnLoopback(t *testing.T) {
+	l1, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l1.Close()
+	p := l1.Addr().(*net.TCPAddr).Port
+	l2, got, err := Listen(p, 3)
+	if err != nil || got == p {
+		t.Fatal(got, err)
+	}
+	l2.Close()
+}
+
+func TestHostnameFallback(t *testing.T) {
+	old := osHostname
+	defer func() { osHostname = old }()
+	osHostname = func() (string, error) { return "", errors.New("boom") }
+	if h := hostname(); h != "localhost" {
+		t.Fatal(h)
+	}
+	osHostname = func() (string, error) { return "mac", nil }
+	if h := hostname(); h != "mac" {
+		t.Fatal(h)
+	}
+}

@@ -85,7 +85,7 @@ func (s *server) handleLocalUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Hub.Publish("item.created", it)
 	if s.OnFileStored != nil {
-		go s.OnFileStored(it)
+		s.OnFileStored(it)
 	}
 	writeJSON(w, http.StatusCreated, it)
 }
