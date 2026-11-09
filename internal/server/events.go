@@ -14,6 +14,9 @@ import (
 // heartbeatInterval is the SSE keep-alive period; tests shorten it.
 var heartbeatInterval = 15 * time.Second
 
+// afterSubscribe is a test hook run right after Subscribe.
+var afterSubscribe func()
+
 // handleEvents: GET /events?name= (SSE).
 func (s *server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	rc := http.NewResponseController(w)
@@ -33,6 +36,15 @@ func (s *server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	cur := s.Hub.LastID()
 	sub, replay, resync := s.Hub.Subscribe(peer, lastID)
 	defer s.Hub.Unsubscribe(sub)
+	if afterSubscribe != nil {
+		afterSubscribe()
+	}
+	// A kick between the session middleware and Subscribe found no
+	// subscriber to close; re-check so a revoked session cannot stay live.
+	if _, ok := s.Auth.Lookup(sess.ID); !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream")

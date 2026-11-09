@@ -15,6 +15,8 @@ func dirErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, dirbrowse.ErrOutside):
 		writeErr(w, http.StatusForbidden, "forbidden")
+	case errors.Is(err, dirbrowse.ErrNotDir):
+		writeErr(w, http.StatusBadRequest, "not_directory")
 	case errors.Is(err, dirbrowse.ErrInvalid):
 		writeErr(w, http.StatusBadRequest, "bad_request")
 	case errors.Is(err, os.ErrNotExist):

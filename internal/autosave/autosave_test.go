@@ -48,3 +48,35 @@ func TestSave(t *testing.T) {
 		t.Fatal("partial dest left behind")
 	}
 }
+
+func TestSafeNameWindowsSafe(t *testing.T) {
+	cases := map[string]string{
+		"report.pdf":          "report.pdf",
+		`a<b>c:d"e|f?g*h.txt`: "a_b_c_d_e_f_g_h.txt",
+		"dir/sub/x.txt":       "x.txt",
+		`C:\Users\x\y.txt`:    "y.txt",
+		"tab\there\x01.txt":   "tab_here_.txt",
+		"name. . ":            "name",
+		"trail.":              "trail",
+		"CON":                 "_CON",
+		"con.txt":             "_con.txt",
+		"Nul.tar.gz":          "_Nul.tar.gz",
+		"COM1":                "_COM1",
+		"lpt9.log":            "_lpt9.log",
+		"COM10":               "COM10",
+		"console.txt":         "console.txt",
+		"AUX ":                "_AUX",
+		"":                    "file",
+		".":                   "file",
+		"..":                  "file",
+		"...":                 "file",
+		" ":                   "file",
+		"/":                   "file",
+		"中文 文件.txt":           "中文 文件.txt",
+	}
+	for in, want := range cases {
+		if got := safeName(in); got != want {
+			t.Errorf("safeName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

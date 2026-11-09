@@ -35,12 +35,14 @@ func main() {
 	}
 
 	cfg, err := config.Parse(os.Args[1:], os.Getenv)
+	// --lang may follow --help (or be next to a bad flag), so pick it out
+	// of the raw args for the help and error text.
+	lang := config.LangFromArgs(os.Args[1:], envLang())
 	if errors.Is(err, flag.ErrHelp) {
-		config.Usage(os.Stdout, envLang())
+		config.Usage(os.Stdout, lang)
 		return
 	}
 	if err != nil {
-		lang := envLang()
 		fmt.Fprintln(os.Stderr, i18n.T(lang, i18n.KeyCLIError, err.Error()))
 		fmt.Fprintln(os.Stderr)
 		config.Usage(os.Stderr, lang)

@@ -114,3 +114,11 @@ func TestResolveLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestListRegularFileIsNotDir(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "f"), []byte("x"), 0600)
+	if _, err := List(root, "f"); !errors.Is(err, ErrNotDir) {
+		t.Fatalf("err %v", err)
+	}
+}

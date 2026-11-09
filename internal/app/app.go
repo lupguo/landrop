@@ -69,8 +69,15 @@ func Run(ctx context.Context, cfg config.Config, out io.Writer) error {
 	defer ln.Close()
 
 	// 2. core state
-	st, err := store.New(filepath.Join(os.TempDir(), fmt.Sprintf("landrop-%d", os.Getpid())), cfg.TTL, time.Now)
+	// An unpredictable name: a fixed landrop-<pid> could be pre-created
+	// (e.g. as a symlink) by another local user.
+	storeDir, err := os.MkdirTemp("", "landrop-")
 	if err != nil {
+		return err
+	}
+	st, err := store.New(storeDir, cfg.TTL, time.Now)
+	if err != nil {
+		os.RemoveAll(storeDir)
 		return err
 	}
 	h := hub.New(1024)

@@ -155,25 +155,37 @@ func TestRunEndToEnd(t *testing.T) {
 	printBanner = func(w io.Writer, b termui.BannerInfo) { banners <- b; oldPrint(w, b) }
 	t.Cleanup(func() { printBanner = oldPrint })
 
+	// A private temp root so the store dir can be found (and never leaks).
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	if runtime.GOOS == "windows" {
+		t.Setenv("TMP", tmp)
+		t.Setenv("TEMP", tmp)
+	}
+
 	cfg := config.Config{Port: freePort(t), Name: "drop", TTL: time.Hour, MaxSize: 1 << 30, NoOpen: true, Lang: "en"}
 	out := &syncBuf{}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- Run(ctx, cfg, out) }()
-	storeDir := filepath.Join(os.TempDir(), fmt.Sprintf("landrop-%d", os.Getpid()))
 	t.Cleanup(func() {
-		// On early failure still stop Run, and never leak the store dir.
+		// On early failure still stop Run (t.TempDir removes the store dir).
 		cancel()
 		select {
 		case <-done:
 		case <-time.After(6 * time.Second):
 		}
-		os.RemoveAll(storeDir)
 	})
 
 	instPath := filepath.Join(home, ".landrop", "instance.json")
 	poll(t, 3*time.Second, "instance file", func() bool { return exists(instPath) })
+	// The store dir is unpredictable (os.MkdirTemp), not landrop-<pid>.
+	dirs, _ := filepath.Glob(filepath.Join(tmp, "landrop-*"))
+	if len(dirs) != 1 || filepath.Base(dirs[0]) == fmt.Sprintf("landrop-%d", os.Getpid()) {
+		t.Fatalf("store dirs %v", dirs)
+	}
+	storeDir := dirs[0]
 
 	// banner: code, LAN token URL, version; mDNS failure is reported, not fatal
 	var b termui.BannerInfo

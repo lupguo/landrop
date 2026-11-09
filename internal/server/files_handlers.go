@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/lupguo/landrop/internal/diskfree"
 	"github.com/lupguo/landrop/internal/store"
@@ -64,7 +63,7 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		case tooLarge(err):
 			writeErr(w, http.StatusRequestEntityTooLarge, "too_large")
 			return
-		case errors.Is(err, syscall.ENOSPC):
+		case isDiskFull(err):
 			writeErr(w, http.StatusInsufficientStorage, "disk_full")
 			return
 		case err != nil:

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -157,4 +158,38 @@ func ParseSize(s string) (int64, error) {
 		return 0, fmt.Errorf("size %q too large", s)
 	}
 	return n * mult, nil
+}
+
+// LangFromArgs pre-scans args for --lang/-lang (as "--lang zh" or
+// "--lang=zh") so help and parse errors can be localized before (or even
+// when) Parse fails. Unsupported or missing values yield fallback.
+func LangFromArgs(args []string, fallback string) string {
+	lang := fallback
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "--" {
+			break
+		}
+		var v string
+		switch {
+		case a == "--lang" || a == "-lang":
+			if i+1 >= len(args) {
+				continue
+			}
+			i++
+			v = args[i]
+		case strings.HasPrefix(a, "--lang="):
+			v = strings.TrimPrefix(a, "--lang=")
+		case strings.HasPrefix(a, "-lang="):
+			v = strings.TrimPrefix(a, "-lang=")
+		default:
+			continue
+		}
+		if slices.Contains(i18n.Langs, v) {
+			lang = v
+		} else {
+			lang = fallback
+		}
+	}
+	return lang
 }

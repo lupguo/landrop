@@ -26,13 +26,41 @@ func UniquePath(dir, name string) string {
 	}
 }
 
+// safeName reduces name to a base name that is valid on every platform
+// (Windows being the strictest): <>:"/\|?* and control characters become
+// "_", trailing dots and spaces are dropped, and reserved device names (CON,
+// PRN, AUX, NUL, COM1-9, LPT1-9, with or without an extension) get a "_"
+// prefix. An empty result is "file".
 func safeName(name string) string {
-	n := filepath.Base(strings.ReplaceAll(name, `\`, "/"))
-	if n == "" || n == "." || n == ".." || n == "/" {
+	n := name
+	if i := strings.LastIndexAny(n, `/\`); i >= 0 {
+		n = n[i+1:]
+	}
+	n = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f || strings.ContainsRune(`<>:"/\|?*`, r) {
+			return '_'
+		}
+		return r
+	}, n)
+	n = strings.TrimRight(n, ". ")
+	if n == "" {
 		return "file"
+	}
+	stem, _, _ := strings.Cut(n, ".")
+	if reserved[strings.ToUpper(strings.TrimRight(stem, " "))] {
+		n = "_" + n
 	}
 	return n
 }
+
+var reserved = func() map[string]bool {
+	m := map[string]bool{"CON": true, "PRN": true, "AUX": true, "NUL": true}
+	for i := '1'; i <= '9'; i++ {
+		m["COM"+string(i)] = true
+		m["LPT"+string(i)] = true
+	}
+	return m
+}()
 
 // Save copies srcPath into dir under a unique variant of name and returns the
 // destination path. A failed copy leaves no partial file behind.

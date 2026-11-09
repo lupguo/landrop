@@ -19,6 +19,9 @@ var ErrOutside = errors.New("path outside root")
 // ErrInvalid is returned for malformed paths and symlink loops.
 var ErrInvalid = errors.New("invalid path")
 
+// ErrNotDir means List was given a path that is not a directory.
+var ErrNotDir = errors.New("not a directory")
+
 // Entry is one directory entry.
 type Entry struct {
 	Name    string    `json:"name"`
@@ -89,6 +92,13 @@ func List(root, rel string) ([]Entry, error) {
 	dir, err := Resolve(root, rel)
 	if err != nil {
 		return nil, err
+	}
+	fi, err := os.Stat(dir)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.IsDir() {
+		return nil, ErrNotDir
 	}
 	des, err := os.ReadDir(dir)
 	if err != nil {

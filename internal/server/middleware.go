@@ -13,11 +13,10 @@ import (
 )
 
 const (
-	csp           = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'"
-	maxNameRunes  = 40
-	maxUARunes    = 200
-	unknownDevice = "Unknown device"
-	nameHeader    = "X-LanDrop-Name"
+	csp          = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'"
+	maxNameRunes = 40
+	maxUARunes   = 200
+	nameHeader   = "X-LanDrop-Name"
 )
 
 type ctxKey struct{}
@@ -103,7 +102,8 @@ func (s *server) hostOnly(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // deviceName resolves the requester's display name from raw (header or
-// query value), falling back to Hostname for the host and "Unknown device".
+// query value), falling back to Hostname for the host. Other devices without
+// a name get "", which the UI renders as a localized "unknown device".
 func (s *server) deviceName(r *http.Request, raw string) string {
 	if dec, err := url.PathUnescape(raw); err == nil {
 		raw = dec
@@ -116,7 +116,7 @@ func (s *server) deviceName(r *http.Request, raw string) string {
 	if s.IsHost(r) && s.Hostname != "" {
 		return s.Hostname
 	}
-	return unknownDevice
+	return ""
 }
 
 func stripControl(s string) string {

@@ -82,3 +82,25 @@ func TestUsageListsEveryFlagLocalized(t *testing.T) {
 		}
 	}
 }
+
+func TestLangFromArgs(t *testing.T) {
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--help", "--lang", "zh"}, "zh"},
+		{[]string{"--lang", "ja", "--help"}, "ja"},
+		{[]string{"-lang=ko", "-h"}, "ko"},
+		{[]string{"--lang=zh"}, "zh"},
+		{[]string{"-lang", "zh"}, "zh"},
+		{[]string{"--lang", "xx", "--help"}, "en"}, // invalid → fallback
+		{[]string{"--lang"}, "en"},
+		{[]string{"--help"}, "en"},
+		{[]string{"--", "--lang", "zh"}, "en"},
+	}
+	for _, c := range cases {
+		if got := LangFromArgs(c.args, "en"); got != c.want {
+			t.Errorf("%v: got %q want %q", c.args, got, c.want)
+		}
+	}
+}

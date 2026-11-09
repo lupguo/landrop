@@ -46,6 +46,8 @@ func TestDirEndpoints(t *testing.T) {
 	if resp, _ = do(t, c, ts, "GET", "/api/dir/raw?path=sub", ""); resp.StatusCode != 400 {
 		t.Fatal(resp.StatusCode)
 	}
+	resp, b = do(t, c, ts, "GET", "/api/dir?path=a.txt", "")
+	wantErr(t, resp, b, 400, "not_directory")
 	if resp, _ = do(t, c, ts, "GET", "/api/dir?path=nope", ""); resp.StatusCode != 404 {
 		t.Fatal(resp.StatusCode)
 	}

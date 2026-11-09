@@ -380,3 +380,50 @@ func TestSecurityHeaders(t *testing.T) {
 		t.Fatalf("headers %v", resp.Header)
 	}
 }
+
+// A kick that lands between the session check and Subscribe must not leave
+// a live subscription behind: handleEvents re-checks the session.
+func TestEventsKickRaceRechecksSession(t *testing.T) {
+	ts, d := newTestServer(t, nil)
+	c := login(t, ts)
+	_, b := do(t, c, ts, "GET", "/api/me", "")
+	var me struct {
+		PeerID string `json:"peer_id"`
+	}
+	decode(t, b, &me)
+	// Simulates a kick that completed just before Subscribe: the session is
+	// revoked but Hub.Kick found no subscriber to close.
+	afterSubscribe = func() { d.Auth.RevokePeer(me.PeerID) }
+	defer func() { afterSubscribe = nil }()
+	resp, b := do(t, c, ts, "GET", "/events?name=x", "")
+	wantErr(t, resp, b, 401, "unauthorized")
+	if n := len(d.Hub.Peers()); n != 0 {
+		t.Fatalf("%d peers still subscribed", n)
+	}
+}
+
+// Without a supplied name, non-host devices get an empty name (the UI
+// renders a localized "unknown"); the host still falls back to Hostname.
+func TestEmptyDeviceNameForPeers(t *testing.T) {
+	ts, d := newTestServer(t, func(d *Deps) {
+		d.IsHost = func(r *http.Request) bool { return r.Header.Get("X-Test-Peer") != "1" }
+	})
+	c := login(t, ts)
+	do(t, c, ts, "POST", "/api/text", `{"content":"peer"}`, "X-Test-Peer", "1")
+	do(t, c, ts, "POST", "/api/text", `{"content":"host"}`)
+	names := map[string]string{}
+	for _, it := range d.Store.List(0) {
+		names[it.Content] = it.From.Name
+	}
+	if n, ok := names["peer"]; !ok || n != "" || names["host"] != "testhost" {
+		t.Fatalf("names %q", names)
+	}
+	peer := login(t, ts)
+	peer.Transport = headerRT{h: http.Header{"X-Test-Peer": {"1"}}, rt: http.DefaultTransport}
+	s := openSSE(t, peer, ts, "", "")
+	s.next(t, time.Second, func(m sseMsg) bool { return m.Retry != "" })
+	ps := d.Hub.Peers()
+	if len(ps) != 1 || ps[0].Name != "" {
+		t.Fatalf("peers %+v", ps)
+	}
+}
