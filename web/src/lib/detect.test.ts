@@ -49,3 +49,20 @@ test('looksLikeLog', () => {
   expect(looksLikeLog(GO)).toBe(false)
   expect(looksLikeLog('ERROR boom\na\nb\nc')).toBe(false) // 25%
 })
+
+// ~1 MB of long whitespace runs with a few non-space chars: the old regexes
+// (/^\s*…/m and /\s+$/) were quadratic here and froze every client.
+const WS_BOMB = ('x' + ' '.repeat(100_000) + '\n' + '\t'.repeat(100_000) + 'y').repeat(5) + ' '.repeat(10_000) + 'z'
+
+test('detection is linear on long whitespace runs', () => {
+  for (const fn of [looksLikeCode, looksLikeLog]) {
+    const t0 = performance.now()
+    fn(WS_BOMB)
+    expect(performance.now() - t0).toBeLessThan(200)
+  }
+})
+
+test('prompt detection still works per line', () => {
+  expect(looksLikeCode('notes\n  $ ls -la\n  $ cd src')).toBe(true) // prompt + indent
+  expect(looksLikeCode('trailing ws  \n  \n')).toBe(false)
+})

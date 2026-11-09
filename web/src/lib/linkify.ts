@@ -1,7 +1,14 @@
 export interface Segment { text: string; href?: string }
 
 const URL_RE = /https?:\/\/[^\s<>"'`]+/g
-const TRAIL = /[).,;!]+$/
+const TRAIL = ').,;!'
+
+// Strips trailing punctuation by hand: /[).,;!]+$/ is quadratic on long runs.
+function stripTrail(url: string): string {
+  let end = url.length
+  while (end > 0 && TRAIL.includes(url[end - 1])) end--
+  return url.slice(0, end)
+}
 
 /** Split text into plain and link segments. Only http(s) URLs become links. */
 export function linkify(text: string): Segment[] {
@@ -14,7 +21,7 @@ export function linkify(text: string): Segment[] {
     else out.push({ text: s })
   }
   for (const m of text.matchAll(URL_RE)) {
-    const url = m[0].replace(TRAIL, '')
+    const url = stripTrail(m[0])
     const start = m.index ?? 0
     if (!/^https?:\/\/[^/]/.test(url)) continue
     push(text.slice(last, start))

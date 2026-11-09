@@ -1,4 +1,8 @@
-const PROMPT = /^\s*(\$|#|>|PS [A-Z]:\\)/m
+// No `m` flag: tested per already-split line, so `^\s*` is anchored once.
+// (With /m, `\s*` spans newlines from every line start: quadratic.)
+const PROMPT = /^\s*(\$|#|>|PS [A-Z]:\\)/
+/** Detection only looks at this many leading chars (bounds every regex). */
+export const DETECT_LIMIT = 16 * 1024
 const KEYWORD = /\b(func|def|class|import|const|let|var|return|select|from|kubectl|docker|git)\b/
 const SINGLE = /^(\$ |kubectl |git |docker )/
 
@@ -8,14 +12,14 @@ const SINGLE = /^(\$ |kubectl |git |docker )/
  * keyword ("from", "let", "return") does not qualify.
  */
 export function looksLikeCode(text: string): boolean {
-  const lines = text.replace(/\s+$/, '').split(/\r?\n/)
+  const lines = text.slice(0, DETECT_LIMIT).trimEnd().split(/\r?\n/)
   if (lines.length < 2) return SINGLE.test(lines[0].trimStart())
   const indented = lines.filter((l) => /^( {2,}|\t)/.test(l)).length
   const signals = [
     indented / lines.length >= 0.3,
-    lines.some((l) => /[{};]\s*$/.test(l)),
-    PROMPT.test(text),
-    KEYWORD.test(text),
+    lines.some((l) => /[{};]$/.test(l.trimEnd())),
+    lines.some((l) => PROMPT.test(l)),
+    lines.some((l) => KEYWORD.test(l)),
   ].filter(Boolean).length
   return signals >= 2
 }
@@ -37,7 +41,7 @@ const LOG_LINE = new RegExp(
 
 /** ≥2 non-empty lines and ≥50% of them start with a timestamp or log level. */
 export function looksLikeLog(text: string): boolean {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '')
+  const lines = text.slice(0, DETECT_LIMIT).split(/\r?\n/).filter((l) => l.trim() !== '')
   if (lines.length < 2) return false
   return lines.filter((l) => LOG_LINE.test(l)).length / lines.length >= 0.5
 }

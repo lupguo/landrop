@@ -20,3 +20,14 @@ test('linkify extra cases', () => {
 test('prose with a URL is linkified', () => {
   expect(linkify('Got this from Bob\nhttps://x.y')).toEqual([{ text: 'Got this from Bob\n' }, { text: 'https://x.y', href: 'https://x.y' }])
 })
+
+test('linkify is linear on pathological input', () => {
+  const ws = ('x' + ' '.repeat(100_000) + '\n' + '\t'.repeat(100_000) + 'y').repeat(5)
+  const parens = 'https://a.b/' + ')'.repeat(1_000_000) + 'x'
+  for (const s of [ws, parens]) {
+    const t0 = performance.now()
+    linkify(s)
+    expect(performance.now() - t0).toBeLessThan(200)
+  }
+  expect(linkify('see https://a.b/c)).,')).toEqual([{ text: 'see ' }, { text: 'https://a.b/c', href: 'https://a.b/c' }, { text: ')).,' }])
+})
