@@ -100,5 +100,6 @@ export const ko: Record<string, string> = {
   'dir.not_found': '찾을 수 없음',
   'dir.error': '이 폴더를 읽을 수 없습니다',
   'dir.empty': '이 폴더는 비어 있습니다.',
+  'dir.folder_icon': '폴더',
   'dir.nav': '폴더 경로',
 }

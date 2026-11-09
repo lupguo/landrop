@@ -100,5 +100,6 @@ export const ja: Record<string, string> = {
   'dir.not_found': '見つかりません',
   'dir.error': 'このフォルダーを読み取れませんでした',
   'dir.empty': 'このフォルダーは空です。',
+  'dir.folder_icon': 'フォルダ',
   'dir.nav': 'フォルダーのパス',
 }

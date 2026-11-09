@@ -45,18 +45,20 @@ export function PeersPanel(props: { onClose: () => void }) {
       {list.length === 0 && <p class="mut hint">{t('peers.empty')}</p>}
       {list.map((p) => {
         const self = !!m && p.peer_id === m.peer_id
+        const name = p.name || t('feed.unknown')
         return (
           <div class="peer" key={p.peer_id}>
             <div class="peer-main">
               <div class="peer-name">
-                <span class="fname">{p.name}</span>
+                <span class="fname">{name}</span>
                 {self && <span class="badge">{t('peers.this_device')}</span>}
                 {p.is_host && <span class="badge host">{t('peers.host')}</span>}
               </div>
               <div class="fsub"><span class="mono">{p.ip}</span> · <span>{guessDeviceName(p.ua)}</span></div>
             </div>
-            {m?.role === 'host' && !self && (
-              <button class="btn" onClick={() => void kick(p.peer_id, p.name)}>{t('peers.kick')}</button>
+            {/* No kick with --no-auth: anyone can rejoin without a code. */}
+            {m?.role === 'host' && !m.no_auth && !self && (
+              <button class="btn" onClick={() => void kick(p.peer_id, name)}>{t('peers.kick')}</button>
             )}
           </div>
         )

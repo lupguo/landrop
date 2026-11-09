@@ -35,7 +35,7 @@ export const en = {
   'feed.clear_confirm': 'Delete all {n} items for every device?',
   'feed.empty': 'Nothing here yet. Paste text or drop a file above.',
   'feed.from': 'from {name} · {time}',
-  'feed.unknown': 'Unknown',
+  'feed.unknown': 'Unknown device',
   'item.copy': 'Copy',
   'item.download': 'Download',
   'item.share': 'Share',
@@ -100,5 +100,6 @@ export const en = {
   'dir.not_found': 'Not found',
   'dir.error': 'Could not read this folder',
   'dir.empty': 'This folder is empty.',
+  'dir.folder_icon': 'DIR',
   'dir.nav': 'Folder path',
 } as const

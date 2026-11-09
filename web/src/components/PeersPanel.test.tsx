@@ -34,3 +34,17 @@ test('PeersPanel host: kick only for non-self, badges shown', () => {
   expect(screen.getByText(t('peers.host'))).toBeTruthy()
   expect(screen.getAllByText('Mac · Chrome').length).toBe(2)
 })
+
+test('PeersPanel hides kick in no-auth mode', () => {
+  setup('host')
+  me.value = { ...me.value!, no_auth: true }
+  render(<PeersPanel onClose={() => {}} />)
+  expect(screen.queryAllByText(t('peers.kick')).length).toBe(0)
+})
+
+test('PeersPanel renders a localized name for empty peer names', () => {
+  setup('peer')
+  peers.value = [{ peer_id: 'p3', name: '', ua: UA, ip: '192.168.1.9', is_host: false }]
+  render(<PeersPanel onClose={() => {}} />)
+  expect(screen.getByText(t('feed.unknown'))).toBeTruthy()
+})

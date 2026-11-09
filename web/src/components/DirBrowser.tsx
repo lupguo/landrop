@@ -48,7 +48,7 @@ export function DirBrowser() {
           const mod = isNaN(when.getTime()) ? '' : when.toLocaleString()
           return e.is_dir ? (
             <button class="item dir-row" key={e.name} onClick={() => { path.value = p }}>
-              <span class="ficon" aria-hidden="true">DIR</span>
+              <span class="ficon" aria-hidden="true">{t('dir.folder_icon')}</span>
               <span class="fmeta"><span class="fname">{e.name}</span><span class="fsub">{mod}</span></span>
             </button>
           ) : (

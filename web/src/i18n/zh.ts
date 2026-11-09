@@ -100,5 +100,6 @@ export const zh: Record<string, string> = {
   'dir.not_found': '未找到',
   'dir.error': '无法读取此文件夹',
   'dir.empty': '此文件夹为空。',
+  'dir.folder_icon': '文件夹',
   'dir.nav': '文件夹路径',
 }

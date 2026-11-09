@@ -41,14 +41,14 @@ export function setUnauthorizedHandler(f: () => void): void { onUnauthorized = f
 
 function nameHeader(): string { return encodeURIComponent(deviceName.value) }
 
-async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
+async function req<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = { 'X-LanDrop-Name': nameHeader() }
   let payload: string | undefined
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
     payload = JSON.stringify(body)
   }
-  const res = await fetch(url, { method, headers, body: payload, credentials: 'same-origin' })
+  const res = await fetch(url, { method, headers, body: payload, credentials: 'same-origin', ...(signal ? { signal } : {}) })
   if (!res.ok) {
     let code = ''
     try { code = (await res.json()).error ?? '' } catch { /* not json */ }
@@ -61,7 +61,7 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 }
 
 export const api = {
-  me: () => req<Me>('GET', '/api/me'),
+  me: (signal?: AbortSignal) => req<Me>('GET', '/api/me', undefined, signal),
   items: (since = 0) => req<{ items: Item[]; last_event_id: number }>('GET', `/api/items?since=${since}`),
   sendText: (content: string) => req<Item>('POST', '/api/text', { content }),
   del: (id: string) => req<void>('DELETE', `/api/items/${encodeURIComponent(id)}`),
