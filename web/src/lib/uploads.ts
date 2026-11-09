@@ -1,5 +1,6 @@
 import { signal, type Signal } from '@preact/signals'
 import { ApiError, upload } from '../api'
+import { me } from '../live'
 
 export type UploadTask = {
   id: string
@@ -37,9 +38,19 @@ function patch(id: string, p: Partial<UploadTask>): void {
   uploads.value = uploads.value.map((x) => (x.id === id ? { ...x, ...p } : x))
 }
 
+/** True when the server's max_size (if known) rules the file out. */
+function oversize(size: number): boolean {
+  const max = me.value?.max_size
+  return typeof max === 'number' && max > 0 && size > max
+}
+
 function start(task: UploadTask): void {
   const file = files.get(task.id)
   if (!file) return
+  if (oversize(file.size)) {
+    patch(task.id, { state: 'error', loaded: 0, speed: 0, error: 'too_large' })
+    return
+  }
   samples.set(task.id, [[Date.now(), 0]])
   patch(task.id, { state: 'uploading', loaded: 0, speed: 0, error: undefined })
   const { promise } = upload(file, (loaded) => {
@@ -80,6 +91,8 @@ export function enqueue(list: File[]): void {
   const added: UploadTask[] = list.map((f) => {
     const id = `u${++seq}`
     files.set(id, f)
+    // Oversize files fail at once instead of after sending gigabytes.
+    if (oversize(f.size)) return { id, name: f.name, size: f.size, loaded: 0, speed: 0, state: 'error', error: 'too_large' }
     return { id, name: f.name, size: f.size, loaded: 0, speed: 0, state: 'queued' }
   })
   uploads.value = [...uploads.value, ...added]
@@ -89,6 +102,7 @@ export function enqueue(list: File[]): void {
 export function retry(id: string): void {
   const task = uploads.value.find((x) => x.id === id)
   if (!task || task.state !== 'error') return
+  if (oversize(task.size)) return
   patch(id, { state: 'queued', loaded: 0, speed: 0, error: undefined })
   pump()
 }

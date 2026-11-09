@@ -26,6 +26,11 @@ var inlineMIMEs = map[string]bool{
 // handleUpload: POST /api/upload, multipart with a single part named "file",
 // streamed straight to disk.
 func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	limit := s.MaxSize + 1<<20 // file plus multipart overhead
+	if r.ContentLength > limit {
+		writeErr(w, http.StatusRequestEntityTooLarge, "too_large")
+		return
+	}
 	if r.ContentLength > 0 {
 		free, err := freeSpace(s.Store.Dir())
 		if err == nil && free < uint64(r.ContentLength)+diskReserve {
@@ -33,7 +38,7 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, s.MaxSize+1<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	mr, err := r.MultipartReader()
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "no_file")

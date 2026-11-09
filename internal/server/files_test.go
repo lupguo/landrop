@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -404,4 +405,39 @@ func TestStreamingMemory(t *testing.T) {
 	if peak > base && int64(peak-base) > 64<<20 {
 		t.Fatalf("peak heap grew %d MiB", (peak-base)>>20)
 	}
+}
+
+// A declared Content-Length over the limit is rejected before the body is
+// read (and before the free-space check, which would say disk_full).
+func TestUploadDeclaredTooLargeRejectedEarly(t *testing.T) {
+	old := freeSpace
+	freeSpace = func(string) (uint64, error) { return 1 << 20, nil }
+	defer func() { freeSpace = old }()
+	_, d := newTestServer(t, func(d *Deps) { d.MaxSize = 1024 })
+	h := New(*d)
+	sess := d.Auth.NewSession()
+	body := &countingReader{r: strings.NewReader("tiny")}
+	req := httptest.NewRequest("POST", "http://x/api/upload", body)
+	req.ContentLength = 1024 + 1<<20 + 1
+	req.Host = "x"
+	req.Header.Set("Origin", "http://x")
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=zz")
+	req.AddCookie(&http.Cookie{Name: "landrop_sid", Value: sess.ID})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	wantErr(t, rec.Result(), rec.Body.Bytes(), 413, "too_large")
+	if body.n != 0 {
+		t.Fatalf("handler read %d body bytes", body.n)
+	}
+}
+
+type countingReader struct {
+	r io.Reader
+	n int
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += n
+	return n, err
 }

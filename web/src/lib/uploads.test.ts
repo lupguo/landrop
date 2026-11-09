@@ -10,6 +10,8 @@ vi.mock('../api', () => {
   }
   return {
     ApiError,
+    api: {},
+    setUnauthorizedHandler: () => {},
     upload: (file: File, onProgress: (l: number, t: number) => void) => {
       let p!: Pending
       const promise = new Promise((resolve, reject) => { p = { resolve, reject, progress: onProgress, name: file.name } })
@@ -73,4 +75,19 @@ test('speedOver averages bytes over the last ~1s window', async () => {
   // samples: [time ms, loaded bytes]
   expect(u.speedOver([[0, 0], [500, 500], [1000, 1000]], 1000)).toBe(1000)
   expect(u.speedOver([[0, 0], [2000, 1000], [2500, 3000]], 2500)).toBe(4000)
+})
+
+test('files over max_size fail with too_large without being sent', async () => {
+  const u = await import('./uploads')
+  const { me } = await import('../live')
+  me.value = { max_size: 50 } as never
+  u.enqueue([file('big', 100), file('ok', 50)])
+  const big = u.uploads.value.find((x) => x.name === 'big')!
+  expect(big.state).toBe('error')
+  expect(big.error).toBe('too_large')
+  expect(pending.map((p) => p.name)).toEqual(['ok'])
+  u.retry(big.id)
+  expect(u.uploads.value.find((x) => x.name === 'big')!.state).toBe('error')
+  expect(pending.map((p) => p.name)).toEqual(['ok'])
+  me.value = null
 })
