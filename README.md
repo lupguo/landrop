@@ -14,7 +14,7 @@ LanDrop is a single-binary tool for moving text and files between devices on the
 brew install lupguo/tap/landrop
 ```
 
-Upgrade with `brew upgrade landrop`. The Homebrew cask is macOS-only.
+Upgrade with `brew upgrade landrop`. The Homebrew cask is macOS-only. More on using Homebrew (upgrade, uninstall, troubleshooting): [docs/homebrew.md](docs/homebrew.md) (Chinese).
 
 **macOS / Linux (install script)**
 
@@ -154,7 +154,7 @@ LanDrop 是一个单文件工具，用于在同一局域网内的设备之间传
 brew install lupguo/tap/landrop
 ```
 
-升级：`brew upgrade landrop`。Homebrew cask 仅适用于 macOS。
+升级：`brew upgrade landrop`。Homebrew cask 仅适用于 macOS。升级、卸载、常见问题等完整说明见 [docs/homebrew.md](docs/homebrew.md)。
 
 **macOS / Linux（安装脚本）**
 

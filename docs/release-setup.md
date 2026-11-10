@@ -225,6 +225,8 @@ base64 -i cert.p12 | pbcopy
 
 ## 4. 创建 lupguo/homebrew-tap 仓库
 
+> 已完成（2026-11-10）：仓库已用 `gh repo create` 创建为公开仓库，带 README 和 `Casks/` 目录，本地路径为 `/data/projects/github.com/lupguo/homebrew-tap`。下面的步骤留作参考。tap 的使用与维护见 [homebrew.md](homebrew.md)。
+
 Homebrew 的规则是：`brew install lupguo/tap/landrop` 会自动去找 `github.com/lupguo/homebrew-tap` 这个仓库。
 
 1. 打开 `https://github.com/new`。
