@@ -2,18 +2,76 @@
 
 [中文说明](#中文说明)
 
-LanDrop is a single-binary tool for moving text and files between devices on the same LAN. Run it on one machine, open the address (or scan the QR code) from any other device, and paste text or drop files in a browser. No install, no accounts, no cloud. The web UI is embedded in the binary.
+<p align="center"><img src="imgs/web.jpg" alt="LanDrop web UI" width="49%"> <img src="imgs/cmd.jpg" alt="LanDrop terminal" width="49%"></p>
+
+LanDrop is a single-binary tool for moving text and files between devices on the same LAN. Run it on one machine, open the address (or scan the QR code) from any other device, and paste text or drop files in a browser. No accounts, no cloud. The web UI is embedded in the binary.
+
+## Install
+
+**macOS (Homebrew, recommended)**
+
+```sh
+brew install lupguo/tap/landrop
+```
+
+Upgrade with `brew upgrade landrop`. The Homebrew cask is macOS-only.
+
+**macOS / Linux (install script)**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lupguo/landrop/main/scripts/install.sh | sh
+```
+
+The script downloads the release for your OS and CPU, verifies its SHA-256 checksum, and installs `landrop` to `/usr/local/bin` if writable, otherwise to `~/.local/bin` (it never uses sudo). Options, set as environment variables:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lupguo/landrop/main/scripts/install.sh | LANDROP_VERSION=v0.1.0 LANDROP_INSTALL_DIR="$HOME/bin" sh
+```
+
+- `LANDROP_VERSION`: tag to install (default: latest release)
+- `LANDROP_INSTALL_DIR`: install directory
+
+Piping a script into a shell runs whatever it contains: you can read [scripts/install.sh](scripts/install.sh) first, or download it and run it yourself.
+
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/lupguo/landrop/main/scripts/install.ps1 | iex
+```
+
+Installs `landrop.exe` to `%LOCALAPPDATA%\Programs\landrop` and adds it to your user PATH (open a new terminal afterwards). To pin a version, set `$env:LANDROP_VERSION = "v0.1.0"` first. Read [scripts/install.ps1](scripts/install.ps1) before piping it to `iex` if you want to check it.
+
+**Manual download**
+
+Download the archive for your platform from the [Releases page](https://github.com/lupguo/landrop/releases), together with `checksums.txt`:
+
+- `landrop_darwin_arm64.tar.gz`, `landrop_darwin_amd64.tar.gz`
+- `landrop_linux_amd64.tar.gz`, `landrop_linux_arm64.tar.gz`
+- `landrop_windows_amd64.zip`
+
+Verify it, then extract and put `landrop` somewhere on your PATH:
+
+```sh
+shasum -a 256 -c checksums.txt --ignore-missing     # macOS
+sha256sum -c --ignore-missing checksums.txt         # Linux
+```
+
+```powershell
+# Windows: compare the output with the matching line in checksums.txt
+Get-FileHash -Algorithm SHA256 .\landrop_windows_amd64.zip
+```
+
+Check the installed version with `landrop --version` (prints `landrop v0.1.0 (<commit>, <date>)`).
+
+Maintainers: see [docs/release-setup.md](docs/release-setup.md) (Chinese) for how releases are set up.
 
 ## Quick start
 
 ```sh
-make all          # builds the web UI, then bin/landrop
-./bin/landrop
+landrop
 ```
 
 The terminal prints the LAN addresses, a 4-digit access code and a QR code. Open the address on another device, enter the code, and paste text or drop files. A device that scans the QR code (or opens the `?t=` link) joins without typing the code.
-
-Pre-built binaries for other platforms: `make dist` writes darwin/arm64, darwin/amd64, windows/amd64, linux/amd64 and linux/arm64 binaries to `dist/`.
 
 ## Flags
 
@@ -46,12 +104,10 @@ landrop send ./report.pdf          # send a file
 cat app.log | landrop send -       # send stdin (text up to 1 MiB becomes a message, larger input a file)
 ```
 
-## Running an unsigned binary
+## Code signing
 
-The release binaries are not code-signed.
-
-- **macOS**: if Gatekeeper blocks it, remove the quarantine flag: `xattr -d com.apple.quarantine landrop`
-- **Windows**: SmartScreen may warn. Click "More info", then "Run anyway".
+- **macOS**: release binaries are signed and notarized by Apple. The first run needs an internet connection so macOS can check the notarization online; this is normal.
+- **Windows**: the binary is not code-signed, so SmartScreen may warn. Click "More info", then "Run anyway".
 
 ## Network notes
 
@@ -75,22 +131,84 @@ Requires Go 1.26 and Node 22.
 
 ```sh
 make all     # web UI + bin/landrop
+./bin/landrop
 make test    # Go and web unit tests
 make e2e     # Playwright smoke test (needs: cd web && npx playwright install chromium)
-make dist    # cross-compile all release targets into dist/
+make dist    # cross-compile darwin/arm64, darwin/amd64, windows/amd64, linux/amd64, linux/arm64 into dist/
+make release-snapshot   # local dry run of the release build (goreleaser, no publishing)
 ```
 
 ---
 
 ## 中文说明
 
-LanDrop 是一个单文件工具，用于在同一局域网内的设备之间传文本和文件。在一台机器上运行，在其他设备的浏览器里打开地址（或扫码），即可粘贴文本、拖入文件。无需安装、无账号、不经过云端；Web 界面已内嵌在二进制中。
+<p align="center"><img src="imgs/web.jpg" alt="LanDrop web UI" width="49%"> <img src="imgs/cmd.jpg" alt="LanDrop terminal" width="49%"></p>
+
+LanDrop 是一个单文件工具，用于在同一局域网内的设备之间传文本和文件。在一台机器上运行，在其他设备的浏览器里打开地址（或扫码），即可粘贴文本、拖入文件。无账号、不经过云端；Web 界面已内嵌在二进制中。
+
+### 安装
+
+**macOS（Homebrew，推荐）**
+
+```sh
+brew install lupguo/tap/landrop
+```
+
+升级：`brew upgrade landrop`。Homebrew cask 仅适用于 macOS。
+
+**macOS / Linux（安装脚本）**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lupguo/landrop/main/scripts/install.sh | sh
+```
+
+脚本会按系统和 CPU 下载对应版本，校验 SHA-256，然后安装到 `/usr/local/bin`（不可写时安装到 `~/.local/bin`，脚本从不使用 sudo）。可用环境变量：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/lupguo/landrop/main/scripts/install.sh | LANDROP_VERSION=v0.1.0 LANDROP_INSTALL_DIR="$HOME/bin" sh
+```
+
+- `LANDROP_VERSION`：指定版本标签（默认最新版）
+- `LANDROP_INSTALL_DIR`：安装目录
+
+把脚本直接管道给 shell 执行意味着运行其中的全部内容，建议先阅读 [scripts/install.sh](scripts/install.sh)，或下载后自行运行。
+
+**Windows（PowerShell）**
+
+```powershell
+irm https://raw.githubusercontent.com/lupguo/landrop/main/scripts/install.ps1 | iex
+```
+
+安装 `landrop.exe` 到 `%LOCALAPPDATA%\Programs\landrop` 并加入用户 PATH（之后请新开终端）。如需指定版本，先设置 `$env:LANDROP_VERSION = "v0.1.0"`。想先检查脚本，请阅读 [scripts/install.ps1](scripts/install.ps1)。
+
+**手动下载**
+
+从 [Releases 页面](https://github.com/lupguo/landrop/releases) 下载对应平台的压缩包和 `checksums.txt`：
+
+- `landrop_darwin_arm64.tar.gz`、`landrop_darwin_amd64.tar.gz`
+- `landrop_linux_amd64.tar.gz`、`landrop_linux_arm64.tar.gz`
+- `landrop_windows_amd64.zip`
+
+校验后解压，把 `landrop` 放到 PATH 中的目录：
+
+```sh
+shasum -a 256 -c checksums.txt --ignore-missing     # macOS
+sha256sum -c --ignore-missing checksums.txt         # Linux
+```
+
+```powershell
+# Windows：将输出与 checksums.txt 中对应行比对
+Get-FileHash -Algorithm SHA256 .\landrop_windows_amd64.zip
+```
+
+安装后可用 `landrop --version` 查看版本（输出 `landrop v0.1.0 (<commit>, <date>)`）。
+
+维护者请参阅 [docs/release-setup.md](docs/release-setup.md)（中文）了解发布配置。
 
 ### 快速开始
 
 ```sh
-make all
-./bin/landrop            # 加 --lang zh 可让终端输出中文
+landrop            # 加 --lang zh 可让终端输出中文
 ```
 
 终端会显示局域网地址、4 位访问码和二维码。其他设备打开地址并输入访问码即可；扫码或打开带 `?t=` 的链接则无需输入访问码。
@@ -104,10 +222,10 @@ cat app.log | landrop send -
 
 参数列表见上方 Flags（`landrop --help --lang zh` 可看中文说明）。
 
-### 未签名二进制
+### 代码签名
 
-- **macOS**：若被 Gatekeeper 拦截，执行 `xattr -d com.apple.quarantine landrop`。
-- **Windows**：SmartScreen 提示时点击"更多信息"，再点"仍要运行"。
+- **macOS**：发布的二进制已签名并经 Apple 公证。首次运行需要联网，macOS 会在线校验公证状态，这是正常现象。
+- **Windows**：二进制未做代码签名，SmartScreen 提示时点击"更多信息"，再点"仍要运行"。
 
 ### 网络提示
 
@@ -124,4 +242,4 @@ cat app.log | landrop send -
 
 ### 从源码构建
 
-需要 Go 1.26 和 Node 22：`make all`；测试 `make test`；冒烟测试 `make e2e`；交叉编译 `make dist`。
+需要 Go 1.26 和 Node 22：`make all` 后运行 `./bin/landrop`；测试 `make test`；冒烟测试 `make e2e`；交叉编译 `make dist`；本地发布演练 `make release-snapshot`。
