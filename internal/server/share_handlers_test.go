@@ -319,3 +319,33 @@ func TestShareFileStillCounts(t *testing.T) {
 	resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/raw", "")
 	wantErr(t, resp, b, 410, "gone")
 }
+
+func TestShareFileUnlimitedClamped(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	id := uploadShared(t, ts, c, "hello")
+	resp, b := do(t, c, ts, "POST", "/api/items/"+id+"/share", `{"max_downloads":-1}`)
+	var sh struct {
+		ID        string
+		Remaining int
+	}
+	decode(t, b, &sh)
+	if resp.StatusCode != 201 || sh.Remaining != 1 {
+		t.Fatalf("share %d %s", resp.StatusCode, b)
+	}
+	anon := &http.Client{}
+	if resp, _ := do(t, anon, ts, "GET", "/s/"+sh.ID+"/raw", ""); resp.StatusCode != 200 {
+		t.Fatal(resp.StatusCode)
+	}
+	resp, b = do(t, anon, ts, "GET", "/s/"+sh.ID+"/raw", "")
+	wantErr(t, resp, b, 410, "gone")
+}
+
+func TestShareMessageCannotReachOtherMessageAttachment(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	_, sidA, _ := newMessageShare(t, ts, c, "{}")
+	_, _, attsB := newMessageShare(t, ts, c, "{}")
+	resp, b := do(t, &http.Client{}, ts, "GET", "/s/"+sidA+"/attachments/"+attsB[0].ID+"/raw", "")
+	wantErr(t, resp, b, 410, "gone")
+}

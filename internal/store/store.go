@@ -22,6 +22,9 @@ type Store struct {
 	order []*Item // ascending by Seq
 	seq   uint64
 	stage map[string]staged
+	// uploading counts in-flight Stage calls per owner; Sweep spares that
+	// owner's staging so a long multi-file draft can't lose its early files.
+	uploading map[string]int
 }
 
 type staged struct {
@@ -37,7 +40,7 @@ func New(dir string, ttl time.Duration, now func() time.Time) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	return &Store{dir: dir, ttl: ttl, now: now, items: map[string]*Item{}, stage: map[string]staged{}}, nil
+	return &Store{dir: dir, ttl: ttl, now: now, items: map[string]*Item{}, stage: map[string]staged{}, uploading: map[string]int{}}, nil
 }
 
 func (s *Store) Dir() string { return s.dir }
@@ -132,8 +135,13 @@ func (s *Store) AddFile(from From, name, mimeType string, r io.Reader, max int64
 	return s.insert(Item{ID: id, Type: KindFile, File: &FileMeta{Name: name, Size: n, MIME: mimeType}, From: from}), nil
 }
 
-// Stage stores an upload on disk, unattached, until AddMessage claims it or it goes stale.
+// Stage stores an upload on disk, unattached, until AddMessage claims it or it
+// goes stale (StageTTL after the owner's last Stage finished, with none in flight).
 func (s *Store) Stage(owner, name, mimeType string, r io.Reader, max int64) (Attachment, error) {
+	s.mu.Lock()
+	s.uploading[owner]++
+	s.mu.Unlock()
+	defer s.endStage(owner)
 	id, err := newID(s.now())
 	if err != nil {
 		return Attachment{}, err
@@ -148,6 +156,23 @@ func (s *Store) Stage(owner, name, mimeType string, r io.Reader, max int64) (Att
 	s.stage[id] = staged{att: att, owner: owner, at: s.now()}
 	s.mu.Unlock()
 	return att, nil
+}
+
+// endStage ends one in-flight Stage of owner and restarts the clock on all of
+// owner's staged entries.
+func (s *Store) endStage(owner string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.uploading[owner]--; s.uploading[owner] <= 0 {
+		delete(s.uploading, owner)
+	}
+	now := s.now()
+	for id, st := range s.stage {
+		if st.owner == owner {
+			st.at = now
+			s.stage[id] = st
+		}
+	}
 }
 
 // AddMessage creates a message item from content and the owner's staged attachments.
@@ -299,7 +324,7 @@ func (s *Store) Sweep() []string {
 	now := s.now()
 	s.mu.Lock()
 	for id, st := range s.stage {
-		if now.Sub(st.at) >= StageTTL {
+		if s.uploading[st.owner] == 0 && now.Sub(st.at) >= StageTTL {
 			delete(s.stage, id)
 			os.Remove(filepath.Join(s.dir, id))
 		}

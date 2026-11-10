@@ -33,6 +33,8 @@ func (s *server) handleCreateShare(w http.ResponseWriter, r *http.Request) {
 	max := body.MaxDownloads
 	if it.Type == store.KindMessage {
 		max = share.Unlimited
+	} else if max < 0 {
+		max = 0 // only message links may be unlimited; 0 → Create's default of 1
 	}
 	l := s.Share.Create(id, max, time.Duration(body.TTLSeconds)*time.Second)
 	writeJSON(w, http.StatusCreated, map[string]any{

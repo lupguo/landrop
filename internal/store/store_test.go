@@ -361,3 +361,65 @@ func TestSweepDropsStaleStaging(t *testing.T) {
 		t.Fatal(ids, dirFiles(t, s))
 	}
 }
+
+// gatedReader signals on its first Read, then blocks until release is closed.
+type gatedReader struct {
+	started chan struct{}
+	release chan struct{}
+	once    bool
+	data    io.Reader
+}
+
+func (g *gatedReader) Read(p []byte) (int, error) {
+	if !g.once {
+		g.once = true
+		close(g.started)
+		<-g.release
+	}
+	return g.data.Read(p)
+}
+
+func TestSweepKeepsStagingWhileOwnerUploads(t *testing.T) {
+	s, now := newTestStore(t)
+	a := stageN(t, s, "p1", 1)[0]
+	other := stageN(t, s, "p2", 1)[0]
+	g := &gatedReader{started: make(chan struct{}), release: make(chan struct{}), data: strings.NewReader("big")}
+	type res struct {
+		att Attachment
+		err error
+	}
+	done := make(chan res)
+	go func() {
+		att, err := s.Stage("p1", "big.bin", "", g, 100)
+		done <- res{att, err}
+	}()
+	<-g.started
+	*now = now.Add(45 * time.Minute)
+	s.Sweep()
+	if _, err := os.Stat(filepath.Join(s.Dir(), a)); err != nil {
+		t.Fatal("A swept while owner upload in flight:", err)
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir(), other)); !os.IsNotExist(err) {
+		t.Fatal("other owner's stale staging should be swept", err)
+	}
+	close(g.release)
+	r := <-done
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	// Completion refreshed A: still alive just under StageTTL later.
+	*now = now.Add(29 * time.Minute)
+	s.Sweep()
+	it, err := s.AddMessage(From{PeerID: "p1"}, "", []string{a, r.att.ID})
+	if err != nil || len(it.Attachments) != 2 {
+		t.Fatal(it, err)
+	}
+
+	// Nothing in flight: staging expires after StageTTL as before.
+	ids := stageN(t, s, "p1", 2)
+	*now = now.Add(StageTTL)
+	s.Sweep()
+	if _, err := s.AddMessage(From{PeerID: "p1"}, "", ids); !errors.Is(err, ErrBadAttachment) {
+		t.Fatal("expected expiry", err)
+	}
+}
