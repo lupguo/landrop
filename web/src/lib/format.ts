@@ -6,7 +6,3 @@ export function formatSize(bytes: number): string {
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++ }
   return i === 0 ? `${Math.round(v)} B` : `${v.toFixed(1)} ${units[i]}`
 }
-
-export function formatSpeed(bytesPerSec: number): string {
-  return `${formatSize(bytesPerSec)}/s`
-}

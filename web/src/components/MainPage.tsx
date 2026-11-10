@@ -32,9 +32,25 @@ export function MainPage() {
   const sharing = useSignal<Item | null>(null)
   const tab = useSignal<'messages' | 'folder'>('messages')
   const hasDir = !!me.value?.has_dir
+  const wantFocus = useRef(false)
+
+  // After a switch to the Messages tab, focus the textarea once it has rendered.
+  useEffect(() => {
+    if (wantFocus.current && ta.current) {
+      wantFocus.current = false
+      ta.current.focus()
+    }
+  })
 
   useEffect(() => {
     let depth = 0
+
+    /** The draft just changed: show the composer (it is hidden on the Folder tab) and focus it. */
+    function showDraft() {
+      tab.value = 'messages'
+      if (ta.current) ta.current.focus()
+      else wantFocus.current = true
+    }
 
     function onPaste(e: ClipboardEvent) {
       if (openOverlay.value > 0) return // a dialog/panel is open
@@ -45,7 +61,7 @@ export function MainPage() {
       if (files.length) {
         e.preventDefault()
         addFiles(files, { pasted: true })
-        ta.current?.focus()
+        showDraft()
         return
       }
       const text = cd.getData('text/plain')
@@ -59,13 +75,13 @@ export function MainPage() {
       if (draft.value.trim() || pending.value.length) {
         // A draft is in progress: the text joins it instead of being sent on its own.
         draft.value += text
-        ta.current?.focus()
+        showDraft()
         return
       }
       if (utf8Len(text) > TEXT_LIMIT) {
         // Too large for a message: show it in the composer, which offers "send as file".
         draft.value = text
-        ta.current?.focus()
+        showDraft()
         return
       }
       void sendText(text)
@@ -94,7 +110,10 @@ export function MainPage() {
       if (!hasFiles(e) && isEditable(e.target)) return
       e.preventDefault()
       const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : []
-      if (files.length) addFiles(files)
+      if (files.length) {
+        addFiles(files)
+        showDraft()
+      }
     }
 
     document.addEventListener('paste', onPaste)

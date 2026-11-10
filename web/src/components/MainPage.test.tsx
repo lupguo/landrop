@@ -80,3 +80,28 @@ test('outside text paste while sending does not change the draft', () => {
   expect(draft.value).toBe('abc')
   expect(fetchMock).not.toHaveBeenCalled()
 })
+
+test('paste/drop on the Folder tab switches to Messages so the draft is visible', async () => {
+  me.value = { ...me.value!, has_dir: true }
+  render(<MainPage />)
+  const folderTab = () => screen.getByRole('tab', { name: 'Folder' })
+  const toFolder = () => { act(() => { folderTab().click() }); expect(screen.queryByLabelText('Message')).toBeNull() }
+
+  toFolder()
+  paste([png('a.png')], '')
+  expect(pending.value.length).toBe(1)
+  await waitFor(() => expect(document.activeElement).toBe(textarea()))
+  expect(screen.getByRole('tab', { name: 'Messages' }).getAttribute('aria-selected')).toBe('true')
+
+  toFolder()
+  paste([], 'more')
+  expect(draft.value).toBe('more')
+  await waitFor(() => expect(document.activeElement).toBe(textarea()))
+
+  toFolder()
+  const ev = new Event('drop', { bubbles: true, cancelable: true })
+  Object.defineProperty(ev, 'dataTransfer', { value: { types: ['Files'], files: [png('d.png')] } })
+  act(() => { document.dispatchEvent(ev) })
+  expect(pending.value.length).toBe(2)
+  await waitFor(() => expect(document.activeElement).toBe(textarea()))
+})

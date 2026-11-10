@@ -75,6 +75,7 @@ export function ShareDialog(props: { item: Item; onClose: () => void }) {
           </div>
           <div class="qr"><img src={`/api/qr?data=${encodeURIComponent(r.url)}`} alt={t('share.qr_alt')} width="180" height="180" /></div>
           <p class="hint center">{t('share.expires_at', { time: new Date(r.expires_at).toLocaleString() })}{!msg && <> · {t('share.remaining', { n: r.remaining })}</>}</p>
+          {msg && <p class="hint center">{t('share.until_expiry')}</p>}
         </>
       )}
     </Dialog>

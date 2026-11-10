@@ -79,6 +79,7 @@ export const ja: Record<string, string> = {
   'share.qr_alt': '共有リンクのQRコード',
   'share.expires_at': '{time} まで有効',
   'share.remaining': '残り {n} 回',
+  'share.until_expiry': 'ダウンロード回数の制限はなく、期限が切れるまで使えます。',
   'share.expires_on': '{time} まで有効',
   'share.gone': 'このリンクは期限切れか、すでに使用されています。',
   'share.show_text': 'テキストを表示',

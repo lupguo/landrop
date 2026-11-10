@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { formatSize, formatSpeed } from './format'
+import { formatSize } from './format'
 
 test('formatSize', () => {
   expect(formatSize(0)).toBe('0 B')
@@ -8,4 +8,3 @@ test('formatSize', () => {
   expect(formatSize(4 * 1024 ** 3)).toBe('4.0 GB')
   expect(formatSize(512)).toBe('512 B')
 })
-test('formatSpeed', () => { expect(formatSpeed(1536)).toBe('1.5 KB/s') })

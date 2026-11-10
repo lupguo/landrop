@@ -79,6 +79,7 @@ export const ko: Record<string, string> = {
   'share.qr_alt': '공유 링크 QR 코드',
   'share.expires_at': '{time}까지 유효',
   'share.remaining': '{n}회 남음',
+  'share.until_expiry': '다운로드 횟수 제한이 없으며 만료될 때까지 사용할 수 있습니다.',
   'share.expires_on': '{time}까지 유효',
   'share.gone': '이 링크는 만료되었거나 이미 사용되었습니다.',
   'share.show_text': '텍스트 보기',

@@ -79,6 +79,7 @@ export const en = {
   'share.qr_alt': 'QR code for the share link',
   'share.expires_at': 'Expires at {time}',
   'share.remaining': '{n} download(s) left',
+  'share.until_expiry': 'No download limit: the link works until it expires.',
   'share.expires_on': 'Expires {time}',
   'share.gone': 'This link has expired or was already used.',
   'share.show_text': 'Show text',

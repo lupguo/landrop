@@ -79,6 +79,7 @@ export const zh: Record<string, string> = {
   'share.qr_alt': '分享链接二维码',
   'share.expires_at': '有效期至 {time}',
   'share.remaining': '剩余 {n} 次下载',
+  'share.until_expiry': '不限下载次数：链接在过期前一直有效。',
   'share.expires_on': '有效期至 {time}',
   'share.gone': '此链接已过期或已被使用。',
   'share.show_text': '显示文本',
