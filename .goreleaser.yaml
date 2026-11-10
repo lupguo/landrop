@@ -1,0 +1,84 @@
+version: 2
+
+project_name: landrop
+
+builds:
+  - id: darwin
+    main: ./cmd/landrop
+    binary: landrop
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/lupguo/landrop/internal/version.Version={{.Tag}} -X github.com/lupguo/landrop/internal/version.Commit={{.ShortCommit}} -X github.com/lupguo/landrop/internal/version.Date={{.Date}}
+  - id: others
+    main: ./cmd/landrop
+    binary: landrop
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    goos: [linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X github.com/lupguo/landrop/internal/version.Version={{.Tag}} -X github.com/lupguo/landrop/internal/version.Commit={{.ShortCommit}} -X github.com/lupguo/landrop/internal/version.Date={{.Date}}
+
+archives:
+  # Two archive entries so the Homebrew cask (macOS only) can select just the darwin ones.
+  - id: archive-darwin
+    ids: [darwin]
+    name_template: "landrop_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files: [README.md]
+    wrap_in_directory: false
+  - id: archive-others
+    ids: [others]
+    name_template: "landrop_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [README.md]
+    wrap_in_directory: false
+
+checksum:
+  name_template: checksums.txt
+
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids: [darwin]
+      sign:
+        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
+        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+        timeout: 20m
+
+release:
+  prerelease: auto
+
+homebrew_casks:
+  - name: landrop
+    ids: [archive-darwin]
+    binaries: [landrop]
+    directory: Casks
+    homepage: https://github.com/lupguo/landrop
+    description: Share files and text between devices on your local network
+    repository:
+      owner: lupguo
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    skip_upload: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

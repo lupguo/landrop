@@ -5,7 +5,7 @@ DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X $(MODULE)/internal/version.Version=$(VERSION) -X $(MODULE)/internal/version.Commit=$(COMMIT) -X $(MODULE)/internal/version.Date=$(DATE)
 TARGETS := darwin/arm64 darwin/amd64 windows/amd64 linux/amd64 linux/arm64
 
-.PHONY: all web build test dist size e2e
+.PHONY: all web build test dist size e2e release-snapshot
 
 all: web build
 
@@ -28,6 +28,10 @@ dist:
 
 size:
 	ls -l dist/
+
+# Local dry run of the release pipeline (no publish); output goes to dist/.
+release-snapshot: web
+	goreleaser release --snapshot --clean
 
 E2E_PORT := 18848
 
