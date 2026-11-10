@@ -76,6 +76,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("GET /api/s/{id}", s.handleShareMeta)
 	mux.HandleFunc("GET /s/{id}", s.handleSharePage)
 	mux.HandleFunc("GET /s/{id}/raw", s.handleShareRaw)
+	mux.HandleFunc("GET /s/{id}/attachments/{aid}/raw", s.handleShareAttachment)
 	mux.HandleFunc("GET /api/dir", s.session(s.handleDirList))
 	mux.HandleFunc("GET /api/dir/raw", s.session(s.handleDirRaw))
 	mux.HandleFunc("GET /events", s.session(s.handleEvents))

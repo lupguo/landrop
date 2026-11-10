@@ -79,3 +79,30 @@ func TestClampPeekSweep(t *testing.T) {
 		t.Fatal(n)
 	}
 }
+
+func TestUnlimitedLink(t *testing.T) {
+	now := time.Unix(0, 0)
+	m := New(func() time.Time { return now })
+	l := m.Create("i1", Unlimited, time.Minute)
+	if l.Remaining != -1 {
+		t.Fatal(l)
+	}
+	for i := 0; i < 50; i++ {
+		got, err := m.Consume(l.ID)
+		if err != nil || got.Remaining != -1 {
+			t.Fatalf("consume %d: %v %v", i, got, err)
+		}
+	}
+	m.Sweep()
+	if _, err := m.Peek(l.ID); err != nil {
+		t.Fatal("sweep dropped live unlimited link", err)
+	}
+	now = now.Add(2 * time.Minute)
+	if _, err := m.Consume(l.ID); !errors.Is(err, ErrGone) {
+		t.Fatal(err)
+	}
+	m.Sweep()
+	if len(m.links) != 0 {
+		t.Fatal("expired link not swept")
+	}
+}

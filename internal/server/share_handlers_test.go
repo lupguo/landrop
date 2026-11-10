@@ -4,7 +4,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/lupguo/landrop/internal/share"
+	"github.com/lupguo/landrop/internal/store"
 )
 
 func useIndex(t *testing.T) {
@@ -203,4 +208,114 @@ func TestShareMetaText(t *testing.T) {
 	if resp.StatusCode != 200 || m.Type != "text" || m.Size != 8 || m.Mime != "text/plain" || m.Remaining != 1 {
 		t.Fatalf("meta %d %+v", resp.StatusCode, m)
 	}
+}
+
+// newMessageShare stages a png and a txt, posts a message and shares it.
+func newMessageShare(t *testing.T, ts *httptest.Server, c *http.Client, body string) (itemID, shareID string, atts []store.Attachment) {
+	t.Helper()
+	a := stage(t, c, ts, "a.png", "image/png", []byte("pngdata"))
+	b := stage(t, c, ts, "b.html", "text/html", []byte("<b>x</b>"))
+	resp, rb := do(t, c, ts, "POST", "/api/messages", msgBody("hello msg", a.ID, b.ID))
+	if resp.StatusCode != 201 {
+		t.Fatalf("message %d %s", resp.StatusCode, rb)
+	}
+	var it store.Item
+	decode(t, rb, &it)
+	resp, rb = do(t, c, ts, "POST", "/api/items/"+it.ID+"/share", body)
+	if resp.StatusCode != 201 {
+		t.Fatalf("share %d %s", resp.StatusCode, rb)
+	}
+	var sh struct {
+		ID        string
+		Remaining int
+	}
+	decode(t, rb, &sh)
+	if sh.Remaining != -1 {
+		t.Fatalf("remaining %d", sh.Remaining)
+	}
+	return it.ID, sh.ID, it.Attachments
+}
+
+func TestShareMessage(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	_, sid, atts := newMessageShare(t, ts, c, `{"max_downloads":1}`)
+	anon := &http.Client{}
+	for i := 0; i < 3; i++ {
+		resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/attachments/"+atts[0].ID+"/raw", "")
+		if resp.StatusCode != 200 || string(b) != "pngdata" {
+			t.Fatalf("raw %d %q", resp.StatusCode, b)
+		}
+		if !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "attachment") {
+			t.Fatal("expected attachment", resp.Header)
+		}
+	}
+	resp, _ := do(t, anon, ts, "GET", "/s/"+sid+"/attachments/"+atts[0].ID+"/raw?inline=1", "")
+	if resp.Header.Get("Content-Disposition") != "inline" {
+		t.Fatal("png should be inline", resp.Header)
+	}
+	resp, _ = do(t, anon, ts, "GET", "/s/"+sid+"/attachments/"+atts[1].ID+"/raw?inline=1", "")
+	if resp.StatusCode != 200 || !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "attachment") {
+		t.Fatal("html must not be inline", resp.Header)
+	}
+	resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/attachments/nope/raw", "")
+	wantErr(t, resp, b, 410, "gone")
+	resp, b = do(t, anon, ts, "GET", "/s/"+sid+"/raw", "")
+	wantErr(t, resp, b, 410, "gone")
+
+	resp, b = do(t, anon, ts, "GET", "/api/s/"+sid, "")
+	var m struct {
+		Type        string
+		Content     string
+		Attachments []store.Attachment
+		Remaining   int
+		ExpiresAt   string `json:"expires_at"`
+	}
+	decode(t, b, &m)
+	if resp.StatusCode != 200 || m.Type != "message" || m.Content != "hello msg" || len(m.Attachments) != 2 || m.Remaining != -1 || m.ExpiresAt == "" {
+		t.Fatalf("meta %d %s", resp.StatusCode, b)
+	}
+}
+
+func TestShareMessageGoneAfterDelete(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	id, sid, atts := newMessageShare(t, ts, c, "{}")
+	if resp, _ := do(t, c, ts, "DELETE", "/api/items/"+id, ""); resp.StatusCode != 204 {
+		t.Fatal(resp.StatusCode)
+	}
+	anon := &http.Client{}
+	resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/attachments/"+atts[0].ID+"/raw", "")
+	wantErr(t, resp, b, 410, "gone")
+	resp, b = do(t, anon, ts, "GET", "/api/s/"+sid, "")
+	wantErr(t, resp, b, 410, "gone")
+}
+
+func TestShareMessageExpired(t *testing.T) {
+	var mu sync.Mutex
+	now := time.Now()
+	clock := func() time.Time { mu.Lock(); defer mu.Unlock(); return now }
+	ts, _ := newTestServer(t, func(d *Deps) { d.Share = share.New(clock) })
+	c := login(t, ts)
+	_, sid, atts := newMessageShare(t, ts, c, `{"ttl_seconds":60}`)
+	mu.Lock()
+	now = now.Add(2 * time.Minute)
+	mu.Unlock()
+	anon := &http.Client{}
+	resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/attachments/"+atts[0].ID+"/raw", "")
+	wantErr(t, resp, b, 410, "gone")
+	resp, b = do(t, anon, ts, "GET", "/api/s/"+sid, "")
+	wantErr(t, resp, b, 410, "gone")
+}
+
+func TestShareFileStillCounts(t *testing.T) {
+	ts, _ := newTestServer(t, nil)
+	c := login(t, ts)
+	sid := newShare(t, ts, c, uploadShared(t, ts, c, "hello"))
+	anon := &http.Client{}
+	if resp, _ := do(t, anon, ts, "GET", "/s/"+sid+"/raw", ""); resp.StatusCode != 200 {
+		t.Fatal(resp.StatusCode)
+	}
+	resp, b := do(t, anon, ts, "GET", "/s/"+sid+"/raw", "")
+	wantErr(t, resp, b, 410, "gone")
 }

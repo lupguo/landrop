@@ -137,12 +137,12 @@ func (s *server) serveItem(w http.ResponseWriter, r *http.Request, it store.Item
 		return
 	}
 	defer f.Close()
-	s.serveFile(w, r, f, it.File.Name, it.File.MIME, it.CreatedAt, public, r.URL.Query().Get("inline") == "1")
+	s.serveFile(w, r, f, it.File.Name, it.File.MIME, it.CreatedAt, public, !public && r.URL.Query().Get("inline") == "1")
 }
 
 // serveFile writes a stored file. Only the inlineMIMEs whitelist is ever
-// served inline, and never when public (share links), which also get no Range
-// support: always a full 200 body.
+// served inline, and only when the caller passes inline (share file links
+// never do). Public (share) responses get no Range support: always a full 200.
 func (s *server) serveFile(w http.ResponseWriter, r *http.Request, f *os.File, name, mimeType string, mod time.Time, public, inline bool) {
 	h := w.Header()
 	ctype := mimeType
@@ -151,7 +151,7 @@ func (s *server) serveFile(w http.ResponseWriter, r *http.Request, f *os.File, n
 	}
 	h.Set("Content-Type", ctype)
 	kind := "attachment"
-	if !public && inline {
+	if inline {
 		base, _, _ := mime.ParseMediaType(mimeType)
 		if inlineMIMEs[strings.ToLower(base)] {
 			kind = "inline"

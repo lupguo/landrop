@@ -25,11 +25,16 @@ func (s *server) handleCreateShare(w http.ResponseWriter, r *http.Request) {
 	if r.ContentLength != 0 && !readJSON(w, r, 4096, &body) {
 		return
 	}
-	if _, ok := s.Store.Get(id); !ok {
+	it, ok := s.Store.Get(id)
+	if !ok {
 		writeErr(w, http.StatusNotFound, "not_found")
 		return
 	}
-	l := s.Share.Create(id, body.MaxDownloads, time.Duration(body.TTLSeconds)*time.Second)
+	max := body.MaxDownloads
+	if it.Type == store.KindMessage {
+		max = share.Unlimited
+	}
+	l := s.Share.Create(id, max, time.Duration(body.TTLSeconds)*time.Second)
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id":         l.ID,
 		"url":        s.PublicBase + "/s/" + l.ID,
@@ -76,7 +81,9 @@ func (s *server) handleShareMeta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m := map[string]any{"type": it.Type, "remaining": l.Remaining, "expires_at": l.ExpiresAt}
-	if it.Type == store.KindText {
+	if it.Type == store.KindMessage {
+		m["content"], m["attachments"] = it.Content, it.Attachments
+	} else if it.Type == store.KindText {
 		m["name"], m["size"], m["mime"] = "", len(it.Content), "text/plain"
 	} else {
 		m["name"], m["size"], m["mime"] = it.File.Name, it.File.Size, it.File.MIME
@@ -104,6 +111,10 @@ func (s *server) handleSharePage(w http.ResponseWriter, r *http.Request) {
 // handleShareRaw: GET /s/{id}/raw consumes one download.
 func (s *server) handleShareRaw(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if _, it, ok := s.liveShare(id); ok && it.Type == store.KindMessage {
+		writeErr(w, http.StatusGone, "gone")
+		return
+	}
 	if r.Method == http.MethodHead {
 		// Probes must not spend a download.
 		_, it, ok := s.liveShare(id)
@@ -130,4 +141,21 @@ func (s *server) handleShareRaw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.serveItem(w, r, it, true)
+}
+
+// handleShareAttachment: GET /s/{id}/attachments/{aid}/raw[?inline=1]. Never
+// consumes; message links are expiry-only.
+func (s *server) handleShareAttachment(w http.ResponseWriter, r *http.Request) {
+	l, it, ok := s.liveShare(r.PathValue("id"))
+	if !ok || it.Type != store.KindMessage {
+		writeErr(w, http.StatusGone, "gone")
+		return
+	}
+	f, att, _, err := s.Store.OpenAttachment(l.ItemID, r.PathValue("aid"))
+	if err != nil {
+		writeErr(w, http.StatusGone, "gone")
+		return
+	}
+	defer f.Close()
+	s.serveFile(w, r, f, att.Name, att.MIME, it.CreatedAt, true, r.URL.Query().Get("inline") == "1")
 }

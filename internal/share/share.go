@@ -11,6 +11,9 @@ import (
 
 var ErrGone = errors.New("share: link gone")
 
+// Unlimited as maxDownloads makes a link with no download count (expiry only).
+const Unlimited = -1
+
 const (
 	defaultMax = 1
 	maxMax     = 100
@@ -38,7 +41,7 @@ func New(now func() time.Time) *Manager {
 
 // Create makes a link; max<=0 → 1, ttl<=0 → 600s; max clamped to 1..100, ttl to 60s..24h.
 func (m *Manager) Create(itemID string, maxDownloads int, ttl time.Duration) Link {
-	if maxDownloads <= 0 {
+	if maxDownloads != Unlimited && maxDownloads <= 0 {
 		maxDownloads = defaultMax
 	}
 	if maxDownloads > maxMax {
@@ -64,9 +67,9 @@ func (m *Manager) Create(itemID string, maxDownloads int, ttl time.Duration) Lin
 	return *l
 }
 
-// live reports whether l is usable. Caller holds mu.
+// live reports whether l is usable (Remaining < 0 means no count limit). Caller holds mu.
 func (m *Manager) live(l *Link) bool {
-	return l != nil && l.Remaining > 0 && m.now().Before(l.ExpiresAt)
+	return l != nil && l.Remaining != 0 && m.now().Before(l.ExpiresAt)
 }
 
 // Peek returns the link without consuming a download.
@@ -88,7 +91,9 @@ func (m *Manager) Consume(id string) (Link, error) {
 	if !m.live(l) {
 		return Link{}, ErrGone
 	}
-	l.Remaining--
+	if l.Remaining > 0 {
+		l.Remaining--
+	}
 	return *l, nil
 }
 
