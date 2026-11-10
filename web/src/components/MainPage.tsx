@@ -4,9 +4,8 @@ import type { Item } from '../api'
 import { t } from '../i18n'
 import { openOverlay } from '../lib/overlay'
 import { me } from '../live'
-import { draft } from '../lib/draft'
+import { addFiles, draft, pending } from '../lib/draft'
 import { utf8Len } from '../lib/meta'
-import { enqueue } from '../lib/uploads'
 import { Composer, sendText, TEXT_LIMIT } from './Composer'
 import { ConnBanner } from './ConnBanner'
 import { DirBrowser } from './DirBrowser'
@@ -44,12 +43,19 @@ export function MainPage() {
       const files = Array.from(cd.files)
       if (files.length) {
         e.preventDefault()
-        enqueue(files)
+        addFiles(files, { pasted: true })
+        ta.current?.focus()
         return
       }
       const text = cd.getData('text/plain')
       if (!text.trim()) return
       e.preventDefault()
+      if (draft.value.trim() || pending.value.length) {
+        // A draft is in progress: the text joins it instead of being sent on its own.
+        draft.value += text
+        ta.current?.focus()
+        return
+      }
       if (utf8Len(text) > TEXT_LIMIT) {
         // Too large for a message: show it in the composer, which offers "send as file".
         draft.value = text
@@ -82,7 +88,7 @@ export function MainPage() {
       if (!hasFiles(e) && isEditable(e.target)) return
       e.preventDefault()
       const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : []
-      if (files.length) enqueue(files)
+      if (files.length) addFiles(files)
     }
 
     document.addEventListener('paste', onPaste)

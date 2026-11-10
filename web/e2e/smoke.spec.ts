@@ -66,6 +66,7 @@ test('2MB upload shows up elsewhere and downloads under its name', async ({ brow
     mimeType: 'text/plain',
     buffer: Buffer.alloc(2 * 1024 * 1024, 'x'),
   })
+  await a.page.getByRole('button', { name: 'Send', exact: true }).click()
   const card = b.page.getByTestId('item').filter({ hasText: 'app.log' }).first()
   await expect(card).toBeVisible({ timeout: 10_000 })
   const [dl] = await Promise.all([
@@ -84,6 +85,7 @@ test('share link works once, then is gone', async ({ browser }) => {
     mimeType: 'application/octet-stream',
     buffer: Buffer.alloc(64 * 1024, 'y'),
   })
+  await a.page.getByRole('button', { name: 'Send', exact: true }).click()
   const card = a.page.getByTestId('item').filter({ hasText: 'once.bin' }).first()
   await expect(card).toBeVisible({ timeout: 10_000 })
   await card.getByRole('button', { name: 'Share' }).click()

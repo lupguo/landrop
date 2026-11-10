@@ -200,7 +200,8 @@ export async function sendDraft(): Promise<boolean> {
       // Staged files expired or were lost; re-upload them all on the next send.
       pending.value = pending.value.map((p) => ({ ...p, stagedId: undefined, state: 'idle', loaded: 0 }))
     }
-    toast(errText(e), 'err', 4000)
+    // A request that fails because the user cancelled needs no error toast.
+    if (!cancelled) toast(errText(e), 'err', 4000)
     return false
   } finally {
     sending.value = false

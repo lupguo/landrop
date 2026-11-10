@@ -1,7 +1,7 @@
 import { ApiError } from '../api'
 import { t } from '../i18n'
 
-const KNOWN = ['too_large', 'disk_full', 'empty', 'no_file', 'bad_origin', 'unauthorized', 'network', 'aborted'] as const
+const KNOWN = ['too_large', 'disk_full', 'empty', 'no_file', 'bad_origin', 'unauthorized', 'network', 'aborted', 'too_many', 'bad_attachment'] as const
 type Known = (typeof KNOWN)[number]
 
 /** Localized message for an API error code (or an ApiError / unknown error). */

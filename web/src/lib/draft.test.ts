@@ -309,3 +309,25 @@ test('cancelSend aborts uploads and keeps draft', async () => {
   expect(d.sending.value).toBe(false)
   expect(toasts.length).toBe(0)
 })
+
+test('cancelSend suppresses the error toast when the request then fails', async () => {
+  const { d, ApiError } = await load()
+  let reject!: (e: unknown) => void
+  calls.sendTextImpl = () => new Promise((_, r) => { reject = r })
+  d.draft.value = 'hello'
+  const p = d.sendDraft()
+  d.cancelSend()
+  reject(new ApiError(0, 'aborted'))
+  expect(await p).toBe(false)
+  expect(toasts.length).toBe(0)
+  expect(d.draft.value).toBe('hello')
+})
+
+test('errText maps too_many and bad_attachment', async () => {
+  const { errText } = await import('./errors')
+  const { ApiError } = await import('../api')
+  const { t } = await import('../i18n')
+  expect(errText(new ApiError(400, 'too_many'))).toBe(t('err.too_many'))
+  expect(errText(new ApiError(400, 'bad_attachment'))).toBe(t('err.bad_attachment'))
+  expect(t('err.bad_attachment')).not.toBe(t('err.generic'))
+})
