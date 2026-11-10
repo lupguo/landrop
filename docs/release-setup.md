@@ -42,13 +42,7 @@ cd /path/to/landrop
 brew install gitleaks && gitleaks git -v .
 ```
 
-- `gitleaks git` 会扫描 git 历史中的每一个提交，不只是当前文件。`-v` 会打印每条发现的详情。
-- 上面的命令只扫当前分支能看到的历史。要连同所有本地分支和 tag 一起扫，运行：
-
-  ```sh
-  gitleaks git -v --log-opts="--all" .
-  ```
-
+- `gitleaks git` 会扫描 git 历史中的每一个提交，不只是当前文件。不加 `--log-opts` 时，它默认以 `git log --all --full-history` 读取历史，所以所有本地分支和 tag 都已包含在内。`-v` 会打印每条发现的详情。
 - 结果是 `no leaks found` 才算通过。如果有发现，逐条看：是真密钥就先去对应平台吊销，再处理历史；是误报（例如测试里的假数据）就记下来。
 
 ### 0.2 用关键词再人工搜一遍
@@ -368,6 +362,7 @@ GitHub 旧的「Tag protection rules」已经被**仓库规则集（Rulesets）*
 
 - 不要新增由 `pull_request` 或 `pull_request_target` 触发、又使用 `environment: release` 的工作流。Environment 只对 `v*` tag 开放，是这套安全设计的前提。
 - `release.yml` 里的第三方 Action 都固定到了 commit SHA（例如 `actions/checkout@3d3c42e…`，后面注释版本号）。以后升级时，同样要写完整 SHA，不要改回 `@v7` 这种可以被移动的标签。
+- GoReleaser 本身的版本也固定为 `version: 'v2.20.0'`（这是本地验证过的版本），不会自动跟随新版本。升级 GoReleaser 是一次有意的修改：先在本地用新版本跑 `goreleaser check` 和 `goreleaser release --snapshot --clean`，通过后再改 `release.yml` 里的版本号，并用 rc tag 演练一次。
 
 ---
 
@@ -414,7 +409,7 @@ rc 是预发布：Release 会标为 Pre-release，不会成为 latest，**也不
 |---|---|
 | `sign & notarize macOS binaries` 显示 skipped / `disabled` | `MACOS_SIGN_P12` 没读到。检查 secret 是否建在 **release** Environment 里、名字是否正确 |
 | `will not try to notarize` | 签名了，但三个 `MACOS_NOTARY_*` 中有空的 |
-| `notarize timeout` 或 `notarize still pending` | 公证没在 20 分钟内完成。**job 不会因此失败**，但二进制可能还没被 Apple 接受。见 9.3 |
+| `timeout waiting for notarize submission response` | 公证没在 20 分钟内完成。**job 会失败**，Release 不会发布。见 9.3 |
 | `rejected` / `invalid` / 401 / 403 | 见 9.3 |
 
 **检查 Release：** 仓库 → **Releases** → `v0.1.0-rc.1`：
@@ -477,6 +472,8 @@ git push origin v0.1.0
 
 和 rc 一样看 Actions 日志，签名和公证这一段应该和 8.1 一样。另外，这次 homebrew cask 那一段**不再跳过**，会推送到 tap。
 
+**正式版的 secret 检查：** release job 在运行 goreleaser 之前有一步 `Require release secrets`。当仓库是 `lupguo/landrop`、并且 tag 里**不含** `-`（即正式版）时，它会检查 6 个 secret（`MACOS_SIGN_P12`、`MACOS_SIGN_PASSWORD`、`MACOS_NOTARY_ISSUER_ID`、`MACOS_NOTARY_KEY_ID`、`MACOS_NOTARY_KEY`、`HOMEBREW_TAP_GITHUB_TOKEN`）是否都非空。只要有一个为空，job 就会失败，并列出缺少的 secret 名字（不会打印值），这样就不会发出一个没签名、或没更新 tap 的正式版。rc tag（含 `-`）和 fork 仓库会跳过这一步，仍可以在没有 secret 时以不签名的方式运行。看到这个失败时，按 6.3 补齐 secret，再按 9.5 删除 tag 后重推。
+
 ### 8.4 首发清单（v0.1.0 之后逐项打勾）
 
 **Release**
@@ -494,7 +491,9 @@ git push origin v0.1.0
 
 - [ ] `brew install lupguo/tap/landrop`。最好在一台干净的 Mac 上，或者用新建的 macOS 用户。
 - [ ] `landrop --version` 输出 `v0.1.0`，第一次运行没有弹出 Gatekeeper 警告。
+- [ ] 测 install.sh 之前，先 `brew uninstall --cask landrop` 卸掉 brew 装的那一份（或者换一台没有用 brew 装过 landrop 的 Mac 来测）。原因：Intel Mac 上 brew 的前缀就是 `/usr/local`，install.sh 默认也装到 `/usr/local/bin`，会覆盖 brew 建的符号链接。
 - [ ] `curl -fsSL https://raw.githubusercontent.com/lupguo/landrop/main/scripts/install.sh | sh` 输出 `Checksum OK.`，`landrop --version` 输出 `v0.1.0`。
+- [ ] `command -v landrop` 显示实际运行的是哪一份（期望是 install.sh 装的路径，例如 `/usr/local/bin/landrop` 或 `~/.local/bin/landrop`，而不是 brew 的 `/opt/homebrew/bin/landrop`）。
 
 **Linux（必须真机或真虚拟机，之前未实测）**
 
@@ -560,9 +559,10 @@ git push origin v0.1.0
   > ⚠️ 安全提醒
   > 这里要临时把 `.p8` 从密码管理器取出到本地。查完立即删除。`--key-id` 和 `--issuer` 不是机密，可以写在命令行上，但 `.p8` 文件本身是机密。
 
-- **`notarize timeout` / `notarize still pending`：** job 不会失败，Release 也会照常发布，但这两个二进制当时还没被 Apple 接受。过一段时间用上面的 `notarytool history` 查看：
-  - 变成 **Accepted**：用户第一次运行时会联网校验，通过即可，不需要重发。
-  - 变成 **Invalid**：删除这个 Release 和 tag（9.5），修好后发新版本。
+- **`timeout waiting for notarize submission response`：** 公证在配置的 20 分钟（`timeout: 20m`，GoReleaser 允许的上限）内没有完成。因为配置了 `wait: true`，这个超时会让 goreleaser 这一步报错、job 失败；公证在打包和发布之前执行，所以 Release **不会**发布，tap 也不会更新。（依据 GoReleaser v2.20.0 的 `internal/pipe/notary/macos.go` 和它依赖的 quill `notary.PollStatus` 源码：超时会返回错误。具体日志文字以实际日志为准。）处理方法：
+  - 先用上面的 `notarytool history` 看这次提交的状态。Apple 那边偶尔排队较久，等它变成 **Accepted** 或稍后再试即可。
+  - 在 Actions 页面对这次运行点 **Re-run jobs** 重跑；或者按 9.5 删除 tag 后重新推。
+  - 如果变成 **Invalid**，按上面的 `notarytool log` 查原因，修好后发新版本。
 
 ### 9.4 tap 推送失败（403 / 404）
 
@@ -616,7 +616,7 @@ git push origin HEAD
 7. **secret 只放 Environment `release`**（6.3）：不放 repository secrets；不要用 `gh secret set --body "<secret>"`；5 个 MACOS_* 要全配；不要在工作流里输出 secret。
 8. **用完删除本地明文**（6.4）：删除 `~/landrop-secrets-tmp`、「下载」里的 `.cer` 和 `.p8`，清空废纸篓和剪贴板。
 9. **Environment 只对 `v*` tag 开放**（6.2、7.3）：不要新增 PR 触发、又使用 `release` Environment 的工作流。
-10. **第三方 Action 固定到 commit SHA**（7.3）：升级时同样写完整 SHA。
+10. **第三方 Action 固定到 commit SHA**（7.3）：升级时同样写完整 SHA。GoReleaser 版本也固定为 `v2.20.0`，升级它要有意修改 `release.yml`。
 11. **账号是根基**（7.2）：GitHub 和 Apple 账号都开两步验证；用 tag 规则集限制谁能推 `v*`。
 12. **查公证日志时临时取出的 `.p8`**（9.3）：查完立即删除。
 

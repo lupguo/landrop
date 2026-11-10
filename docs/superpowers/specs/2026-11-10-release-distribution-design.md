@@ -143,7 +143,7 @@ README 中对 `curl | sh` 和 `irm | iex` 加一句安全提示：可以先下�
 
 0. **把仓库改为公开前的检查**：用 gitleaks（或 `git log -p` 加关键词搜索）扫描全部提交历史，确认没有密钥、Token、私人路径或文件；确认 `.superpowers/`、`.idea/` 从未被提交；确认 `LandropPRD.md` 等文档可以公开。全部确认后，再到 Settings → General → Danger Zone → Change visibility 改为 Public。提醒用户：仓库一旦公开，历史就可能已被他人克隆或缓存，事后改回私有也收不回。
 1. **总览**：一张表列出 6 个 secret 的名称、来源、用途，以及泄露后果。
-2. **Developer ID Application 证书**：需要 Account Holder 角色。用户有个人开发者账号，默认本人就是 Account Holder **[我的判断]**；如果不是，手册要说明需请 Account Holder 代为创建。在 Keychain 中生成 CSR，到 developer.apple.com 创建证书；导出 .p12 并设置强密码；用 `base64 -i cert.p12 | pbcopy` 转码。提醒：每个账号的 Developer ID 证书数量有限，有效期 5 年。
+2. **Developer ID Application 证书**：需要 Account Holder 角色。用户有个人开发者账号，默认本人就是 Account Holder **[我的判断]**；如果不是，手册要说明需请 Account Holder 代为创建。在 Keychain 中生成 CSR，到 developer.apple.com 创建证书；导出 .p12 并设置强密码；用 `base64 -i cert.p12 | pbcopy` 转码。提醒：每个账号的 Developer ID 证书数量有限；Developer ID G2 证书有效期 1 年，需每年续期。
 3. **App Store Connect API Key**：Users and Access → Integrations → Team Keys；角色选 Developer，用最小权限；.p8 **只能下载一次**；记录 Issuer ID 和 Key ID。
 4. **创建 `lupguo/homebrew-tap` 仓库**：公开仓库，带一个 README。
 5. **Fine-grained PAT**：Only select repositories 只选 homebrew-tap；Contents 读写；设置过期时间（建议 1 年）并加日历提醒续期。
@@ -152,7 +152,7 @@ README 中对 `curl | sh` 和 `irm | iex` 加一句安全提示：可以先下�
 8. **第一次发版**：`git tag v0.1.0 && git push origin v0.1.0` → 在 Actions 页面看进度 → 检查 Release 附件 → 本地验证：`codesign -dv --verbose=4`、`spctl -a -vvv -t install`、`brew install lupguo/tap/landrop`。
 9. **常见失败及排查**：公证超时或被拒、tap 推送 403、tag 推错了怎么删和重发。
 10. **安全风险与应急**：
-    - .p12 加密码泄露：别人可以用你的名义签恶意软件。应立即到 developer.apple.com 吊销证书，然后重新生成。
+    - .p12 加密码泄露：别人可以用你的名义签恶意软件。Developer ID 证书不能在 developer.apple.com 自助吊销，需发邮件到 product-security@apple.com 申请吊销（吊销后，用该证书签名的软件将无法再被新安装）；然后重新生成证书。
     - .p8 泄露：在 App Store Connect 吊销该 Key。
     - PAT 泄露：在 GitHub 设置中删除。因为权限限定在 tap 仓库，影响范围是 tap 里的安装配置可能被篡改，应检查 tap 仓库的提交历史。
     - 本地明文文件（.p12、.p8、base64 文本）用完后从下载目录删除，原件保存在密码管理器里。
