@@ -173,12 +173,12 @@ func (s *Store) AddMessage(from From, content string, ids []string) (Item, error
 		seen[id] = true
 		atts = append(atts, st.att)
 	}
-	for _, id := range ids {
-		delete(s.stage, id)
-	}
 	id, err := newID(s.now())
 	if err != nil {
 		return Item{}, err
+	}
+	for _, id := range ids {
+		delete(s.stage, id)
 	}
 	return s.insertLocked(Item{ID: id, Type: KindMessage, Content: content, Attachments: atts, From: from}), nil
 }
