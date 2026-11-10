@@ -6,6 +6,7 @@
 # Environment:
 #   LANDROP_VERSION       tag to install, e.g. v0.1.0 (default: latest)
 #   LANDROP_INSTALL_DIR   install directory (default: /usr/local/bin if writable, else ~/.local/bin)
+#   LANDROP_DOWNLOAD_BASE override the download base URL (for mirrors and testing)
 set -eu
 
 RELEASES_URL="https://github.com/lupguo/landrop/releases"
@@ -35,7 +36,7 @@ archive="landrop_${os}_${arch}.tar.gz"
 
 # --- download base
 if [ -n "${LANDROP_DOWNLOAD_BASE:-}" ]; then
-  base="$LANDROP_DOWNLOAD_BASE"
+  base="${LANDROP_DOWNLOAD_BASE%/}"
 elif [ -n "${LANDROP_VERSION:-}" ]; then
   base="$RELEASES_URL/download/$LANDROP_VERSION"
 else
