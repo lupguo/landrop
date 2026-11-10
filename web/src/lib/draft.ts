@@ -74,17 +74,20 @@ function codeOf(e: unknown): string {
   return e instanceof ApiError ? e.code || `http_${e.status}` : 'network'
 }
 
-/** Add files to the draft. Pasted files with a generic name ("image.png") get a timestamped one. */
-export function addFiles(files: File[], opts?: { pasted?: boolean }): void {
-  if (!files.length) return
+/**
+ * Add files to the draft. Pasted files with a generic name ("image.png") get a timestamped one.
+ * Returns how many files were added (fewer than given when the 20 cap is hit, 0 while sending).
+ */
+export function addFiles(files: File[], opts?: { pasted?: boolean }): number {
+  if (!files.length) return 0
   if (sending.value) {
     toast(t('composer.busy'), 'err')
-    return
+    return 0
   }
   const room = MAX_ATTACHMENTS - pending.value.length
   if (files.length > room) toast(t('composer.too_many'), 'err')
   const take = files.slice(0, Math.max(0, room))
-  if (!take.length) return
+  if (!take.length) return 0
   const used = new Set(pending.value.map((p) => p.file.name))
   const now = new Date()
   const added = take.map((f): PendingFile => {
@@ -105,6 +108,7 @@ export function addFiles(files: File[], opts?: { pasted?: boolean }): void {
     return p
   })
   pending.value = [...pending.value, ...added]
+  return added.length
 }
 
 export function removeFile(key: string): void {

@@ -71,3 +71,12 @@ test('drop adds to tray instead of uploading', () => {
   expect(pending.value[0].file.name).toBe('d.png')
   expect(fetchMock).not.toHaveBeenCalled()
 })
+
+test('outside text paste while sending does not change the draft', () => {
+  render(<MainPage />)
+  act(() => { draft.value = 'abc'; sending.value = true })
+  textarea().blur()
+  paste([], 'def')
+  expect(draft.value).toBe('abc')
+  expect(fetchMock).not.toHaveBeenCalled()
+})

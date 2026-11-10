@@ -37,7 +37,6 @@ export const ja: Record<string, string> = {
   'composer.file_too_large': 'ファイルがサイズ上限を超えています',
   'composer.busy': '送信中です。しばらくお待ちください…',
   'composer.cancel': 'キャンセル',
-  'composer.retry': '再試行',
   'feed.clear': 'すべて削除',
   'feed.clear_confirm': 'すべてのデバイスから {n} 件をすべて削除しますか？',
   'feed.empty': 'まだ何もありません。上にテキストを貼り付けるかファイルをドロップしてください。',

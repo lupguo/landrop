@@ -331,3 +331,14 @@ test('errText maps too_many and bad_attachment', async () => {
   expect(errText(new ApiError(400, 'bad_attachment'))).toBe(t('err.bad_attachment'))
   expect(t('err.bad_attachment')).not.toBe(t('err.generic'))
 })
+
+test('addFiles returns how many files were added', async () => {
+  const { d } = await load()
+  expect(d.addFiles([txt('a'), txt('b')])).toBe(2)
+  expect(d.addFiles(Array.from({ length: 25 }, (_, i) => txt(`f${i}`)))).toBe(18)
+  expect(d.addFiles([txt('z')])).toBe(0)
+  d.pending.value = []
+  d.sending.value = true
+  expect(d.addFiles([txt('a')])).toBe(0)
+  d.sending.value = false
+})

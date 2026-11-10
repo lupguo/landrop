@@ -37,7 +37,6 @@ export const ko: Record<string, string> = {
   'composer.file_too_large': '파일이 크기 제한을 넘었습니다',
   'composer.busy': '보내는 중입니다. 잠시 기다려 주세요…',
   'composer.cancel': '취소',
-  'composer.retry': '다시 시도',
   'feed.clear': '모두 지우기',
   'feed.clear_confirm': '모든 기기에서 {n}개 항목을 모두 삭제할까요?',
   'feed.empty': '아직 아무것도 없습니다. 위에 텍스트를 붙여넣거나 파일을 끌어다 놓으세요.',

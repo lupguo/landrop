@@ -37,7 +37,6 @@ export const en = {
   'composer.file_too_large': 'File is over the size limit',
   'composer.busy': 'Sending, please wait…',
   'composer.cancel': 'Cancel',
-  'composer.retry': 'Retry',
   'feed.clear': 'Clear all',
   'feed.clear_confirm': 'Delete all {n} items for every device?',
   'feed.empty': 'Nothing here yet. Paste text or drop a file above.',

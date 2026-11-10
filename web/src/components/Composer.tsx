@@ -75,8 +75,8 @@ export function Composer(props: { dragging: boolean; textareaRef?: { current: HT
   }
 
   function sendAsFile() {
-    addFiles([new File([draft.value], 'text.txt', { type: 'text/plain' })])
-    draft.value = ''
+    // Clear the text only once it is safely in the tray (the tray may be full).
+    if (addFiles([new File([draft.value], 'text.txt', { type: 'text/plain' })])) draft.value = ''
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -130,13 +130,12 @@ export function Composer(props: { dragging: boolean; textareaRef?: { current: HT
         <input ref={fileInput} type="file" multiple hidden onChange={onPick} />
         <span class="row-end">
           {text && <span class="hint">{t('composer.chars', { n: text.length })}</span>}
-          {busy
-            ? <button class="btn" onClick={cancelSend}>{t('composer.cancel')}</button>
-            : (
-              <button class="btn pri" disabled={!ready} onClick={send}>
-                {t('composer.send')} <span class="kbd" aria-hidden="true">{isMac ? '⌘↵' : 'Ctrl+↵'}</span>
-              </button>
-            )}
+          {/* One button that turns into Cancel while sending, so keyboard focus stays on it. */}
+          <button class={busy ? 'btn' : 'btn pri'} disabled={!busy && !ready} onClick={busy ? cancelSend : send}>
+            {busy
+              ? t('composer.cancel')
+              : <>{t('composer.send')} <span class="kbd" aria-hidden="true">{isMac ? '⌘↵' : 'Ctrl+↵'}</span></>}
+          </button>
         </span>
       </div>
     </div>

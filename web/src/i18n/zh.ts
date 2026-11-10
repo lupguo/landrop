@@ -37,7 +37,6 @@ export const zh: Record<string, string> = {
   'composer.file_too_large': '文件超过大小限制',
   'composer.busy': '正在发送，请稍候…',
   'composer.cancel': '取消',
-  'composer.retry': '重试',
   'feed.clear': '清空全部',
   'feed.clear_confirm': '确定为所有设备删除全部 {n} 条内容？',
   'feed.empty': '还没有内容。在上方粘贴文本或拖入文件。',

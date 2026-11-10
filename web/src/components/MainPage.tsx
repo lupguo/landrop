@@ -4,7 +4,7 @@ import type { Item } from '../api'
 import { t } from '../i18n'
 import { openOverlay } from '../lib/overlay'
 import { me } from '../live'
-import { addFiles, draft, pending } from '../lib/draft'
+import { addFiles, draft, pending, sending } from '../lib/draft'
 import { utf8Len } from '../lib/meta'
 import { Composer, sendText, TEXT_LIMIT } from './Composer'
 import { ConnBanner } from './ConnBanner'
@@ -13,6 +13,7 @@ import { Feed } from './Feed'
 import { PeersPanel } from './PeersPanel'
 import { Settings } from './Settings'
 import { ShareDialog } from './ShareDialog'
+import { toast } from './Toast'
 import { TopBar } from './TopBar'
 
 function isEditable(el: EventTarget | null): boolean {
@@ -50,6 +51,11 @@ export function MainPage() {
       const text = cd.getData('text/plain')
       if (!text.trim()) return
       e.preventDefault()
+      if (sending.value) {
+        // The draft is being sent; changing it now would make the next send repeat it.
+        toast(t('composer.busy'), 'err')
+        return
+      }
       if (draft.value.trim() || pending.value.length) {
         // A draft is in progress: the text joins it instead of being sent on its own.
         draft.value += text
