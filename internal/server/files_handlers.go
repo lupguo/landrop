@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lupguo/landrop/internal/diskfree"
 	"github.com/lupguo/landrop/internal/store"
@@ -22,26 +25,27 @@ var inlineMIMEs = map[string]bool{
 	"image/png": true, "image/jpeg": true, "image/gif": true, "image/webp": true,
 }
 
-// handleUpload: POST /api/upload, multipart with a single part named "file",
-// streamed straight to disk.
-func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
+// filePart is the shared prologue of the upload handlers: it enforces the
+// Content-Length limit and disk-free check, caps the body, and returns the
+// multipart part named "file". On failure it has already written the error.
+func (s *server) filePart(w http.ResponseWriter, r *http.Request) (*multipart.Part, bool) {
 	limit := s.MaxSize + 1<<20 // file plus multipart overhead
 	if r.ContentLength > limit {
 		writeErr(w, http.StatusRequestEntityTooLarge, "too_large")
-		return
+		return nil, false
 	}
 	if r.ContentLength > 0 {
 		free, err := freeSpace(s.Store.Dir())
 		if err == nil && free < uint64(r.ContentLength)+diskReserve {
 			writeErr(w, http.StatusInsufficientStorage, "disk_full")
-			return
+			return nil, false
 		}
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	mr, err := r.MultipartReader()
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "no_file")
-		return
+		return nil, false
 	}
 	for {
 		part, err := mr.NextPart()
@@ -51,33 +55,42 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 			} else {
 				writeErr(w, http.StatusBadRequest, "no_file")
 			}
-			return
+			return nil, false
 		}
 		if part.FormName() != "file" {
 			part.Close()
 			continue
 		}
-		from := store.From{PeerID: sessionFrom(r).PeerID, Name: s.deviceName(r, r.Header.Get(nameHeader))}
-		it, err := s.Store.AddFile(from, part.FileName(), part.Header.Get("Content-Type"), part, s.MaxSize)
-		switch {
-		case tooLarge(err):
-			writeErr(w, http.StatusRequestEntityTooLarge, "too_large")
-			return
-		case isDiskFull(err):
-			writeErr(w, http.StatusInsufficientStorage, "disk_full")
-			return
-		case err != nil:
-			// Aborted or broken body: AddFile already removed its .part file.
-			writeErr(w, http.StatusBadRequest, "upload_failed")
-			return
-		}
-		s.Hub.Publish("item.created", it)
-		if s.OnFileStored != nil {
-			s.OnFileStored(it)
-		}
-		writeJSON(w, http.StatusCreated, it)
+		return part, true
+	}
+}
+
+// handleUpload: POST /api/upload, multipart with a single part named "file",
+// streamed straight to disk.
+func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	part, ok := s.filePart(w, r)
+	if !ok {
 		return
 	}
+	from := store.From{PeerID: sessionFrom(r).PeerID, Name: s.deviceName(r, r.Header.Get(nameHeader))}
+	it, err := s.Store.AddFile(from, part.FileName(), part.Header.Get("Content-Type"), part, s.MaxSize)
+	switch {
+	case tooLarge(err):
+		writeErr(w, http.StatusRequestEntityTooLarge, "too_large")
+		return
+	case isDiskFull(err):
+		writeErr(w, http.StatusInsufficientStorage, "disk_full")
+		return
+	case err != nil:
+		// Aborted or broken body: AddFile already removed its .part file.
+		writeErr(w, http.StatusBadRequest, "upload_failed")
+		return
+	}
+	s.Hub.Publish("item.created", it)
+	if s.OnFileStored != nil {
+		s.OnFileStored(it)
+	}
+	writeJSON(w, http.StatusCreated, it)
 }
 
 func tooLarge(err error) bool {
@@ -124,31 +137,40 @@ func (s *server) serveItem(w http.ResponseWriter, r *http.Request, it store.Item
 		return
 	}
 	defer f.Close()
-	ctype := it.File.MIME
+	s.serveFile(w, r, f, it.File.Name, it.File.MIME, it.CreatedAt, public, r.URL.Query().Get("inline") == "1")
+}
+
+// serveFile writes a stored file. Only the inlineMIMEs whitelist is ever
+// served inline, and never when public (share links), which also get no Range
+// support: always a full 200 body.
+func (s *server) serveFile(w http.ResponseWriter, r *http.Request, f *os.File, name, mimeType string, mod time.Time, public, inline bool) {
+	h := w.Header()
+	ctype := mimeType
 	if ctype == "" {
 		ctype = "application/octet-stream"
 	}
 	h.Set("Content-Type", ctype)
 	kind := "attachment"
-	if !public && r.URL.Query().Get("inline") == "1" {
-		base, _, _ := mime.ParseMediaType(it.File.MIME)
+	if !public && inline {
+		base, _, _ := mime.ParseMediaType(mimeType)
 		if inlineMIMEs[strings.ToLower(base)] {
 			kind = "inline"
 		}
 	}
-	h.Set("Content-Disposition", contentDisposition(kind, it.File.Name))
+	h.Set("Content-Disposition", contentDisposition(kind, name))
 	h.Set("Cache-Control", "no-store")
 	if public {
-		// Share links: no Range support, always a full 200 body.
 		r.Header.Del("Range")
 		r.Header.Del("If-Range")
-		h.Set("Content-Length", strconv.FormatInt(it.File.Size, 10))
+		if fi, err := f.Stat(); err == nil {
+			h.Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
+		}
 		if r.Method != http.MethodHead {
 			io.Copy(w, f)
 		}
 		return
 	}
-	http.ServeContent(w, r, "", it.CreatedAt, f)
+	http.ServeContent(w, r, "", mod, f)
 }
 
 // contentDisposition builds a Content-Disposition value. kind is "inline" or
