@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef } from 'preact/hooks'
 import { api } from '../api'
 import { t } from '../i18n'
 import { errText } from '../lib/errors'
+import { draft } from '../lib/draft'
 import { utf8Len } from '../lib/meta'
 import { enqueue } from '../lib/uploads'
 import { toast } from './Toast'
@@ -10,8 +11,6 @@ import { toast } from './Toast'
 export const TEXT_LIMIT = 1 << 20
 const MAX_H = 180
 
-/** The composer's text; MainPage's global paste handler may fill it. */
-export const draft = signal('')
 const busy = signal(false)
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)

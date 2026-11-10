@@ -1,12 +1,14 @@
 import { deviceName } from './lib/device'
 
+export interface Attachment { id: string; name: string; size: number; mime: string }
 export interface PeerRef { peer_id: string; name: string }
 export interface Item {
   id: string
   seq: number
-  type: 'text' | 'file'
+  type: 'text' | 'file' | 'message'
   content?: string
   file?: { name: string; size: number; mime: string }
+  attachments?: Attachment[]
   from: PeerRef
   created_at: string
   expires_at: string
@@ -22,7 +24,16 @@ export interface Me {
   max_size: number
 }
 export interface ShareResult { id: string; url: string; remaining: number; expires_at: string }
-export interface ShareMeta { type: string; name: string; size: number; mime: string; remaining: number; expires_at: string }
+export interface ShareMeta {
+  type: 'text' | 'file' | 'message'
+  name: string
+  size: number
+  mime: string
+  content?: string
+  attachments?: Attachment[]
+  remaining: number
+  expires_at: string
+}
 export interface DirEntry { name: string; is_dir: boolean; size: number; mod_time: string }
 
 export class ApiError extends Error {
@@ -64,6 +75,7 @@ export const api = {
   me: (signal?: AbortSignal) => req<Me>('GET', '/api/me', undefined, signal),
   items: (since = 0) => req<{ items: Item[]; last_event_id: number }>('GET', `/api/items?since=${since}`),
   sendText: (content: string) => req<Item>('POST', '/api/text', { content }),
+  sendMessage: (content: string, ids: string[]) => req<Item>('POST', '/api/messages', { content, attachments: ids }),
   del: (id: string) => req<void>('DELETE', `/api/items/${encodeURIComponent(id)}`),
   clear: () => req<void>('DELETE', '/api/items'),
   share: (id: string, maxDownloads: number, ttlSeconds: number) =>
@@ -79,10 +91,26 @@ export function rawUrl(id: string, inline?: boolean): string {
   return `/api/items/${encodeURIComponent(id)}/raw${inline ? '?inline=1' : ''}`
 }
 
-export function upload(file: File, onProgress: (loaded: number, total: number) => void): { promise: Promise<Item>; abort(): void } {
+export function attachmentUrl(itemId: string, attId: string, inline?: boolean): string {
+  return `/api/items/${encodeURIComponent(itemId)}/attachments/${encodeURIComponent(attId)}/raw${inline ? '?inline=1' : ''}`
+}
+
+export function shareAttachmentUrl(shareId: string, attId: string, inline?: boolean): string {
+  return `/s/${encodeURIComponent(shareId)}/attachments/${encodeURIComponent(attId)}/raw${inline ? '?inline=1' : ''}`
+}
+
+/**
+ * POST a file as multipart part `file` with progress. `/api/upload` publishes a file
+ * Item; `/api/attachments` stages it and resolves to an Attachment instead.
+ */
+export function upload<T = Item>(
+  file: File,
+  onProgress: (loaded: number, total: number) => void,
+  url = '/api/upload',
+): { promise: Promise<T>; abort(): void } {
   const xhr = new XMLHttpRequest()
-  const promise = new Promise<Item>((resolve, reject) => {
-    xhr.open('POST', '/api/upload')
+  const promise = new Promise<T>((resolve, reject) => {
+    xhr.open('POST', url)
     xhr.setRequestHeader('X-LanDrop-Name', nameHeader())
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded, e.total) }
     xhr.onload = () => {
