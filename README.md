@@ -65,7 +65,7 @@ The release binaries are not code-signed.
 
 - LanDrop speaks plain HTTP on your LAN. Anyone who can sniff the network can see traffic. Use it only on networks you trust.
 - Access is gated by a 4-digit code. Five consecutive wrong attempts lock that IP for 60 seconds, and more than 30 failures overall within a minute lock all code attempts for 60 seconds. Existing sessions and QR/token links are unaffected.
-- Share links are one-time by default (1 download, 10 minutes); invalid or used links return HTTP 410.
+- Share links are one-time by default (1 download, 10 minutes); invalid or used links return HTTP 410. Message (text + attachments) links have no download limit and work until they expire.
 - `--no-auth` disables the code entirely: anyone on the network can view, send and download. Use it only on networks you fully trust.
 - Only the host machine (loopback) can remove other devices.
 
@@ -119,7 +119,7 @@ cat app.log | landrop send -
 
 - 局域网内使用明文 HTTP，请只在可信网络中使用。
 - 访问码为 4 位数字；同一 IP 连续输错 5 次锁定 60 秒，全局 1 分钟内失败超过 30 次则暂停所有输码尝试 60 秒。
-- 分享链接默认一次有效（1 次下载、10 分钟），失效返回 HTTP 410。
+- 分享链接默认一次有效（1 次下载、10 分钟），失效返回 HTTP 410。消息（文字 + 附件）的分享链接不限下载次数，在过期前一直有效。
 - `--no-auth` 会关闭访问码，网络内任何人都能查看和发送，请谨慎使用。
 
 ### 从源码构建

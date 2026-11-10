@@ -28,7 +28,7 @@
 
 1. **A clipboard holding both a file and text** (Finder copy, or "copy image" in a browser, which also carries text or HTML): only the file enters the tray, nothing is inserted into the textarea, and the draft text stays unchanged. Owned by Task 6.
 2. **Retry after staging expired**: a send fails, the user retries more than 30 minutes later, and the server answers `bad_attachment`. The client drops every `stagedId` and re-uploads the files on the next send instead of looping on the error. Owned by Task 4.
-3. **Several screenshots pasted within the same second** get distinct names (`-1`, `-2`), so downloads and autosave do not overwrite each other. Owned by Task 4.
+3. **Several screenshots pasted within the same second** get distinct names (`-2`, `-3`, …), so downloads and autosave do not overwrite each other. Owned by Task 4.
 4. **Hostile attachment names** (`../../etc/x.png`, `a\b.png`, an empty name): staging sanitizes them exactly as `AddFile` does, and `Content-Disposition` stays well formed. Owned by Task 1.
 5. **A message deleted while its share page is open**: share attachment downloads return 410, and the list endpoints no longer show it. Owned by Task 3.
 
