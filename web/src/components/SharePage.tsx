@@ -1,10 +1,11 @@
 import { useSignal } from '@preact/signals'
 import { useEffect } from 'preact/hooks'
-import { api, ApiError, type ShareMeta } from '../api'
+import { api, ApiError, shareAttachmentUrl, type ShareMeta } from '../api'
 import { t } from '../i18n'
 import { copyText } from '../lib/clipboard'
 import { formatSize } from '../lib/format'
 import { LangSwitch } from './LangSwitch'
+import { MessageBody } from './MessageBody'
 import { Toasts, toast } from './Toast'
 
 type View = 'loading' | 'ready' | 'gone' | 'error'
@@ -40,8 +41,8 @@ export function SharePage(props: { id: string }) {
     }
   }
 
-  async function copy() {
-    const ok = await copyText(text.value ?? '')
+  async function copy(s: string) {
+    const ok = await copyText(s)
     toast(ok ? t('toast.copied') : t('toast.copy_failed'), ok ? 'ok' : 'err')
   }
 
@@ -54,7 +55,20 @@ export function SharePage(props: { id: string }) {
         {view.value === 'loading' && <p class="mut">{t('share.loading')}</p>}
         {view.value === 'gone' && <p class="gone" role="alert">{t('share.gone')}</p>}
         {view.value === 'error' && <p class="error" role="alert">{t('share.error')}</p>}
-        {view.value === 'ready' && m && (
+        {view.value === 'ready' && m && m.type === 'message' && (
+          <>
+            <div class="fname share-name">{t('share.message_title')}</div>
+            <p class="hint">{t('share.expires_on', { time: new Date(m.expires_at).toLocaleString() })}</p>
+            <div class="share-msg">
+              <MessageBody content={m.content ?? ''} attachments={m.attachments ?? []}
+                src={(a, inline) => shareAttachmentUrl(props.id, a.id, inline)}
+                actions={(m.content ?? '').trim() !== '' ? (
+                  <button class="btn pri" onClick={() => void copy(m.content ?? '')}>{t('item.copy')}</button>
+                ) : undefined} />
+            </div>
+          </>
+        )}
+        {view.value === 'ready' && m && m.type !== 'message' && (
           <>
             {m.type === 'file' ? (
               <>
@@ -77,7 +91,7 @@ export function SharePage(props: { id: string }) {
             ) : (
               <>
                 <pre class="body share-text">{text.value}</pre>
-                <button class="btn pri" onClick={() => void copy()}>{t('item.copy')}</button>
+                <button class="btn pri" onClick={() => void copy(text.value ?? '')}>{t('item.copy')}</button>
               </>
             )}
           </>

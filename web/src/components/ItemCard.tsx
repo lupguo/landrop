@@ -1,9 +1,10 @@
-import { api, rawUrl, type Item } from '../api'
+import { api, attachmentUrl, rawUrl, type Item } from '../api'
 import { t } from '../i18n'
 import { copyText } from '../lib/clipboard'
 import { errText } from '../lib/errors'
 import { avatarColor, avatarLetter, hhmm } from '../lib/meta'
 import { FileBody } from './FileBody'
+import { MessageBody } from './MessageBody'
 import { TextBody } from './TextBody'
 import { toast } from './Toast'
 
@@ -39,6 +40,14 @@ export function ItemCard(props: { item: Item; onShare: (item: Item) => void }) {
           <button class="btn pri" onClick={() => void copy(it.content ?? '')}>{t('item.copy')}</button>
           {common}
         </>} />
+      ) : it.type === 'message' ? (
+        <MessageBody content={it.content ?? ''} attachments={it.attachments ?? []}
+          src={(a, inline) => attachmentUrl(it.id, a.id, inline)} actions={<>
+            {(it.content ?? '').trim() !== '' && (
+              <button class="btn pri" onClick={() => void copy(it.content ?? '')}>{t('item.copy')}</button>
+            )}
+            {common}
+          </>} />
       ) : (
         <>
           <FileBody item={it} />

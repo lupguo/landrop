@@ -41,3 +41,24 @@ test('SharePage file: download link to raw with download attr', async () => {
   await waitFor(() => expect(a.getAttribute('href')).toBe('/s/abc/raw'))
   expect(a.hasAttribute('download')).toBe(true)
 })
+
+test('message share shows content and attachments without consuming', async () => {
+  setLang('en')
+  const f = vi.fn(async (url: string) => {
+    if (url === '/api/s/abc') return json(200, {
+      type: 'message', name: '', size: 0, mime: '', remaining: -1, content: 'hi there',
+      attachments: [{ id: 'p1', name: 'pic.png', size: 5, mime: 'image/png' }, { id: 'd1', name: 'doc.pdf', size: 9, mime: 'application/pdf' }],
+      expires_at: new Date(Date.now() + 600000).toISOString(),
+    })
+    throw new Error('unexpected ' + url)
+  })
+  vi.stubGlobal('fetch', f)
+  const { container } = render(<SharePage id="abc" />)
+  expect(await screen.findByText('hi there')).toBeTruthy()
+  expect(screen.queryByText(t('share.show_text'))).toBeNull()
+  expect(container.textContent).not.toContain(t('share.remaining', { n: -1 }))
+  expect(container.querySelector('img')!.getAttribute('src')).toBe('/s/abc/attachments/p1/raw?inline=1')
+  const hrefs = Array.from(container.querySelectorAll('a[download]')).map((a) => a.getAttribute('href'))
+  expect(hrefs).toEqual(['/s/abc/attachments/p1/raw', '/s/abc/attachments/d1/raw'])
+  expect(f.mock.calls.map((c) => c[0])).toEqual(['/api/s/abc'])
+})

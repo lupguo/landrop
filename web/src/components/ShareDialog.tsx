@@ -41,16 +41,18 @@ export function ShareDialog(props: { item: Item; onClose: () => void }) {
   useEffect(() => { if (result.value) document.getElementById('sh-url')?.focus() }, [result.value])
 
   const r = result.value
+  // Message links are expiry-only: the server ignores the download count.
+  const msg = props.item.type === 'message'
   return (
     <Dialog title={t('share.title')} onClose={props.onClose}>
       {!r ? (
         <>
-          <div class="field">
+          {!msg && <div class="field">
             <label for="sh-dl">{t('share.downloads')}</label>
             <select id="sh-dl" class="inp" value={downloads.value} onChange={(e) => { downloads.value = Number((e.target as HTMLSelectElement).value) }}>
               {DOWNLOADS.map((n) => <option key={n} value={n}>{t('share.n_downloads', { n })}</option>)}
             </select>
-          </div>
+          </div>}
           <div class="field">
             <label for="sh-ttl">{t('share.expiry')}</label>
             <select id="sh-ttl" class="inp" value={ttl.value} onChange={(e) => { ttl.value = Number((e.target as HTMLSelectElement).value) }}>
@@ -72,7 +74,7 @@ export function ShareDialog(props: { item: Item; onClose: () => void }) {
             </div>
           </div>
           <div class="qr"><img src={`/api/qr?data=${encodeURIComponent(r.url)}`} alt={t('share.qr_alt')} width="180" height="180" /></div>
-          <p class="hint center">{t('share.expires_at', { time: new Date(r.expires_at).toLocaleString() })} · {t('share.remaining', { n: r.remaining })}</p>
+          <p class="hint center">{t('share.expires_at', { time: new Date(r.expires_at).toLocaleString() })}{!msg && <> · {t('share.remaining', { n: r.remaining })}</>}</p>
         </>
       )}
     </Dialog>

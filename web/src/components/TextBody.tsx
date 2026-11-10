@@ -8,8 +8,11 @@ import { lineCount } from '../lib/meta'
 
 const MAX_LINES = 4
 
-/** Renders the text body plus the actions row, whose left side holds the expand toggle. */
-export function TextBody(props: { content: string; actions: ComponentChildren }) {
+/**
+ * Renders the text body plus the actions row, whose left side holds the expand toggle.
+ * `after` renders between the body and the actions row (message attachments).
+ */
+export function TextBody(props: { content: string; actions: ComponentChildren; after?: ComponentChildren }) {
   const text = props.content
   // Logs: monospace, no hljs, keep links clickable. Code: monospace + hljs. Otherwise prose.
   const kind = useMemo(() => (looksLikeLog(text) ? 'log' : looksLikeCode(text) ? 'code' : 'prose'), [text])
@@ -43,6 +46,7 @@ export function TextBody(props: { content: string; actions: ComponentChildren })
           {segs.map((s, i) => (s.href ? <a key={i} href={s.href} target="_blank" rel="noopener noreferrer">{s.text}</a> : s.text))}
         </div>
       )}
+      {props.after}
       <div class="acts">
         {over && (
           <button class="toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
