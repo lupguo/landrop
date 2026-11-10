@@ -57,3 +57,50 @@ test('download link points at the current image', () => {
   fireEvent.keyDown(document, { key: 'ArrowRight' })
   expect(a.getAttribute('href')).toBe('/d/2')
 })
+
+test('Esc and arrows do not leak to other document listeners (stacked overlays)', () => {
+  const seen: string[] = []
+  const h = (e: KeyboardEvent) => { seen.push(e.key) }
+  document.addEventListener('keydown', h)
+  let closed = 0
+  render(<ImageViewer images={imgs} start={0} onClose={() => { closed++ }} />)
+  fireEvent.keyDown(document, { key: 'ArrowRight' })
+  fireEvent.keyDown(document, { key: 'Escape' })
+  document.removeEventListener('keydown', h)
+  expect(seen).toEqual([])
+  expect(closed).toBe(1)
+})
+
+test('modifier+arrow is ignored', () => {
+  const { getByText } = render(<ImageViewer images={imgs} start={0} onClose={() => {}} />)
+  fireEvent.keyDown(document, { key: 'ArrowRight', altKey: true })
+  getByText('1 / 3')
+})
+
+test('Tab cycles within the dialog', () => {
+  const { getByLabelText } = render(<ImageViewer images={imgs} start={1} onClose={() => {}} />)
+  const dl = getByLabelText('Download')
+  const next = getByLabelText('Next')
+  next.focus()
+  fireEvent.keyDown(document, { key: 'Tab' })
+  expect(document.activeElement).toBe(dl)
+  fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
+  expect(document.activeElement).toBe(next)
+})
+
+test('focus stays inside when Next disables at the end', () => {
+  const { getByLabelText, container } = render(<ImageViewer images={imgs} start={1} onClose={() => {}} />)
+  const next = getByLabelText('Next') as HTMLButtonElement
+  next.focus()
+  fireEvent.click(next)
+  expect(next.disabled).toBe(true)
+  expect(container.querySelector('.viewer-box')!.contains(document.activeElement)).toBe(true)
+})
+
+test('keyboard clamps against current image count', () => {
+  const { getByText, rerender } = render(<ImageViewer images={imgs} start={0} onClose={() => {}} />)
+  rerender(<ImageViewer images={imgs.slice(0, 2)} start={0} onClose={() => {}} />)
+  fireEvent.keyDown(document, { key: 'ArrowRight' })
+  fireEvent.keyDown(document, { key: 'ArrowRight' })
+  getByText('2 / 2')
+})

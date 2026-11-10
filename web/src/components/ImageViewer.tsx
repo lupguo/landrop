@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { t } from '../i18n'
 import { useOverlay } from '../lib/overlay'
 
+const FOCUSABLE = 'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
 export type ViewerImage = { src: string; download: string; name: string }
 
 /** Full-screen image viewer: arrows/keys/swipe navigate (clamped), Esc/backdrop close. */
@@ -13,22 +15,40 @@ export function ImageViewer(props: { images: ViewerImage[]; start: number; onClo
   const close = useRef(props.onClose)
   close.current = props.onClose
   const touchX = useRef<number | null>(null)
-  const go = (d: number) => setI((c) => Math.min(Math.max(c + d, 0), n - 1))
+  const count = useRef(n)
+  count.current = n
+  const go = (d: number) => setI((c) => Math.min(Math.max(c + d, 0), count.current - 1))
 
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
     box.current?.focus()
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') { e.preventDefault(); close.current() }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); go(1) }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1) }
+      // Capture phase on window + stopImmediatePropagation: keys never reach overlays underneath.
+      const stop = () => { e.preventDefault(); e.stopImmediatePropagation() }
+      if (e.key === 'Escape') { stop(); close.current(); return }
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        stop(); go(e.key === 'ArrowRight' ? 1 : -1); return
+      }
+      if (e.key !== 'Tab' || !box.current) return
+      const f = Array.from(box.current.querySelectorAll<HTMLElement>(FOCUSABLE))
+      const a = document.activeElement
+      if (!f.length) { stop(); box.current.focus(); return }
+      if (e.shiftKey && (a === f[0] || a === box.current || !box.current.contains(a))) { stop(); f[f.length - 1].focus() }
+      else if (!e.shiftKey && (a === f[f.length - 1] || !box.current.contains(a))) { stop(); f[0].focus() }
     }
-    document.addEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
     return () => {
-      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onKey, true)
       try { prev?.focus({ preventScroll: true }) } catch { /* ignore */ }
     }
   }, [])
+
+  // A nav button disabled at the list end drops focus to body; keep it inside the dialog.
+  useEffect(() => {
+    const a = document.activeElement as HTMLElement | null
+    if (!box.current || (box.current.contains(a) && !(a as HTMLButtonElement).disabled)) return
+    box.current.focus()
+  }, [i])
 
   const cur = props.images[i]
   if (!cur) return null
