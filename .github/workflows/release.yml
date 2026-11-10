@@ -61,10 +61,11 @@ jobs:
       - name: Go tests
         run: go test ./...
 
-      # Real releases of the upstream repo must be signed and update the tap.
-      # Forks and prerelease tags (containing '-') skip this and may run unsigned.
-      - name: Require release secrets
-        if: github.repository == 'lupguo/landrop' && !contains(github.ref_name, '-')
+      # Signing secrets are all-or-none: a partial set would publish binaries that
+      # are signed but not notarized. Without them the release is unsigned and the
+      # Homebrew cask is skipped (.goreleaser.yaml skip_upload), so brew users never
+      # get an unsigned build. With them, the tap token is required too.
+      - name: Check release secrets
         env:
           MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
           MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
@@ -73,18 +74,24 @@ jobs:
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
-          missing=""
-          [ -n "$MACOS_SIGN_P12" ] || missing="$missing MACOS_SIGN_P12"
-          [ -n "$MACOS_SIGN_PASSWORD" ] || missing="$missing MACOS_SIGN_PASSWORD"
-          [ -n "$MACOS_NOTARY_ISSUER_ID" ] || missing="$missing MACOS_NOTARY_ISSUER_ID"
-          [ -n "$MACOS_NOTARY_KEY_ID" ] || missing="$missing MACOS_NOTARY_KEY_ID"
-          [ -n "$MACOS_NOTARY_KEY" ] || missing="$missing MACOS_NOTARY_KEY"
-          [ -n "$HOMEBREW_TAP_GITHUB_TOKEN" ] || missing="$missing HOMEBREW_TAP_GITHUB_TOKEN"
+          set_n=0; missing=""
+          for v in MACOS_SIGN_P12 MACOS_SIGN_PASSWORD MACOS_NOTARY_ISSUER_ID MACOS_NOTARY_KEY_ID MACOS_NOTARY_KEY; do
+            eval "val=\${$v}"
+            if [ -n "$val" ]; then set_n=$((set_n+1)); else missing="$missing $v"; fi
+          done
+          if [ "$set_n" -eq 0 ]; then
+            echo "::warning::No macOS signing secrets: ${GITHUB_REF_NAME} will be released UNSIGNED and the Homebrew cask will not be updated."
+            exit 0
+          fi
           if [ -n "$missing" ]; then
-            echo "::error::Real release ${GITHUB_REF_NAME} needs these secrets in the 'release' environment, but they are empty:${missing}. Add them (docs/release-setup.md) or use a prerelease tag such as ${GITHUB_REF_NAME}-rc.1."
+            echo "::error::Signing secrets are partially set; missing:${missing}. Set all five or none (docs/release-setup.md 6.3)."
             exit 1
           fi
-          echo "All release secrets are present."
+          if [ -z "$HOMEBREW_TAP_GITHUB_TOKEN" ]; then
+            echo "::error::Signing secrets are set but HOMEBREW_TAP_GITHUB_TOKEN is empty (docs/release-setup.md ch.5)."
+            exit 1
+          fi
+          echo "All release secrets are present: signed release with Homebrew cask."
 
       # GoReleaser refuses a dirty tree; show the state for diagnosis.
       - name: Working tree status

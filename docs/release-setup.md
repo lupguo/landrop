@@ -474,7 +474,13 @@ git push origin v0.1.0
 
 和 rc 一样看 Actions 日志，签名和公证这一段应该和 8.1 一样。另外，这次 homebrew cask 那一段**不再跳过**，会推送到 tap。
 
-**正式版的 secret 检查：** release job 在运行 goreleaser 之前有一步 `Require release secrets`。当仓库是 `lupguo/landrop`、并且 tag 里**不含** `-`（即正式版）时，它会检查 6 个 secret（`MACOS_SIGN_P12`、`MACOS_SIGN_PASSWORD`、`MACOS_NOTARY_ISSUER_ID`、`MACOS_NOTARY_KEY_ID`、`MACOS_NOTARY_KEY`、`HOMEBREW_TAP_GITHUB_TOKEN`）是否都非空。只要有一个为空，job 就会失败，并列出缺少的 secret 名字（不会打印值），这样就不会发出一个没签名、或没更新 tap 的正式版。rc tag（含 `-`）和 fork 仓库会跳过这一步，仍可以在没有 secret 时以不签名的方式运行。看到这个失败时，按 6.3 补齐 secret，再按 9.5 删除 tag 后重推。
+**secret 检查（`Check release secrets`）：** release job 在运行 goreleaser 之前检查 secret，规则是“全有或全无”：
+- 5 个 `MACOS_*` 一个都没有：发布**不签名**的版本，并跳过 Homebrew cask（`.goreleaser.yaml` 里的 `skip_upload` 在没有 `MACOS_SIGN_P12` 时为 `true`）。Actions 里会显示一条 warning。v0.1.0 就是这样发布的。
+- 只设置了一部分 `MACOS_*`：job 失败，并列出缺少的名字（不会打印值）。这样可以避免发出“签了名但没公证”的版本。
+- 5 个 `MACOS_*` 都有，但 `HOMEBREW_TAP_GITHUB_TOKEN` 为空：job 失败。
+- 全部都有：签名、公证，正式版还会更新 tap。
+
+看到失败时，按 6.3 补齐 secret，再按 9.5 删除 tag 后重推。
 
 ### 8.4 首发清单（v0.1.0 之后逐项打勾）
 

@@ -8,7 +8,9 @@ LanDrop is a single-binary tool for moving text and files between devices on the
 
 ## Install
 
-**macOS (Homebrew, recommended)**
+**macOS (Homebrew)**
+
+> v0.1.0 is not code-signed yet, so it is not on Homebrew. The cask is published from the first signed release; until then use the install script below.
 
 ```sh
 brew install lupguo/tap/landrop
@@ -106,7 +108,7 @@ cat app.log | landrop send -       # send stdin (text up to 1 MiB becomes a mess
 
 ## Code signing
 
-- **macOS**: release binaries are signed and notarized by Apple. The first run needs an internet connection so macOS can check the notarization online; this is normal.
+- **macOS**: v0.1.0 is not signed. The install script works as-is (curl downloads are not quarantined). If you downloaded the archive in a browser and Gatekeeper blocks it, run `xattr -d com.apple.quarantine landrop`. Later signed releases are notarized by Apple; their first run checks the notarization online.
 - **Windows**: the binary is not code-signed, so SmartScreen may warn. Click "More info", then "Run anyway".
 
 ## Network notes
@@ -148,7 +150,9 @@ LanDrop 是一个单文件工具，用于在同一局域网内的设备之间传
 
 ### 安装
 
-**macOS（Homebrew，推荐）**
+**macOS（Homebrew）**
+
+> v0.1.0 还没有代码签名，所以暂未上架 Homebrew。第一个签名版本发布时会同步上架；在那之前，请使用下面的安装脚本。
 
 ```sh
 brew install lupguo/tap/landrop
@@ -224,7 +228,7 @@ cat app.log | landrop send -
 
 ### 代码签名
 
-- **macOS**：发布的二进制已签名并经 Apple 公证。首次运行需要联网，macOS 会在线校验公证状态，这是正常现象。
+- **macOS**：v0.1.0 未签名。用安装脚本安装可以直接运行（curl 下载的文件不会被加上隔离标记）。如果是在浏览器里下载的压缩包，被 Gatekeeper 拦截时，执行 `xattr -d com.apple.quarantine landrop`。之后的签名版本会经过 Apple 公证，首次运行时会联网校验。
 - **Windows**：二进制未做代码签名，SmartScreen 提示时点击"更多信息"，再点"仍要运行"。
 
 ### 网络提示

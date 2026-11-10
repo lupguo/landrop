@@ -2,6 +2,8 @@
 
 LanDrop 通过自建的 Homebrew tap [`lupguo/homebrew-tap`](https://github.com/lupguo/homebrew-tap) 分发，安装包类型是 **cask**，只支持 macOS（Apple Silicon 和 Intel 都支持）。Linux 和 Windows 请使用 [README](../README.md#install) 里的一键安装脚本。
 
+> **当前状态（v0.1.0）**：v0.1.0 是未签名版本，发布流程按设计**不会**把未签名的版本推到 brew，所以 `brew install lupguo/tap/landrop` 要等到第一个签名版本才能用。在那之前，mac 用户请用 README 里的 install.sh。
+
 - 第一部分：给使用者
 - 第二部分：给维护者（tap 仓库如何运作，以后怎么加其他项目）
 

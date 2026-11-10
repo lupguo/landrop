@@ -74,7 +74,8 @@ homebrew_casks:
       owner: lupguo
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    skip_upload: auto
+    # Never publish an unsigned build to brew users: skip the cask without signing secrets.
+    skip_upload: '{{ if isEnvSet "MACOS_SIGN_P12" }}auto{{ else }}true{{ end }}'
 
 changelog:
   sort: asc
