@@ -105,7 +105,7 @@ func TestShareUsesPublicBaseNotHostHeader(t *testing.T) {
 		Remaining int
 	}
 	decode(t, b, &sh)
-	if !strings.HasPrefix(sh.URL, "http://192.168.1.23:8848/s/") || sh.Remaining != 3 || d.PublicBase == "" {
+	if !strings.HasPrefix(sh.URL, "http://192.168.1.23:9958/s/") || sh.Remaining != 3 || d.PublicBase == "" {
 		t.Fatalf("%+v", sh)
 	}
 }

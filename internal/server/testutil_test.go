@@ -35,8 +35,8 @@ func newTestServer(t *testing.T, mut func(*Deps)) (*httptest.Server, *Deps) {
 		Auth:       auth.New(time.Now),
 		Share:      share.New(time.Now),
 		MaxSize:    4 << 30,
-		PublicBase: "http://192.168.1.23:8848",
-		MDNSURL:    "http://drop.local:8848",
+		PublicBase: "http://192.168.1.23:9958",
+		MDNSURL:    "http://drop.local:9958",
 		Hostname:   "testhost",
 		Now:        time.Now,
 		Web: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

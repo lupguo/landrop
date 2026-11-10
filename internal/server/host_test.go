@@ -26,7 +26,7 @@ func getWithHost(t *testing.T, c *http.Client, url, host string) (*http.Response
 func TestNoAuthRejectsForeignHost(t *testing.T) {
 	ts, _ := newTestServer(t, func(d *Deps) { d.NoAuth = true })
 	for _, p := range []string{"/api/items", "/", "/events", "/api/me", "/s/abc"} {
-		resp, b := getWithHost(t, &http.Client{}, ts.URL+p, "attacker.example:8848")
+		resp, b := getWithHost(t, &http.Client{}, ts.URL+p, "attacker.example:9958")
 		wantErr(t, resp, b, http.StatusMisdirectedRequest, "bad_host")
 		if resp.Header.Get("Set-Cookie") != "" {
 			t.Fatalf("%s: cookie issued for foreign host", p)
@@ -38,12 +38,12 @@ func TestNoAuthAllowsKnownHosts(t *testing.T) {
 	ts, _ := newTestServer(t, func(d *Deps) {
 		d.NoAuth = true
 		d.Hostname = "MacBook-Pro"
-		d.MDNSURL = "http://drop.local:8848"
+		d.MDNSURL = "http://drop.local:9958"
 	})
 	for _, h := range []string{
-		"127.0.0.1:8848", "192.168.1.23", "[::1]:8848", "[fe80::1%25en0]:8848",
-		"localhost:8848", "LOCALHOST", "drop.local:8848", "DROP.LOCAL",
-		"macbook-pro", "MacBook-Pro.local:8848",
+		"127.0.0.1:9958", "192.168.1.23", "[::1]:9958", "[fe80::1%25en0]:9958",
+		"localhost:9958", "LOCALHOST", "drop.local:9958", "DROP.LOCAL",
+		"macbook-pro", "MacBook-Pro.local:9958",
 	} {
 		resp, b := getWithHost(t, &http.Client{}, ts.URL+"/api/items", h)
 		if resp.StatusCode != 200 {
@@ -65,7 +65,7 @@ func TestCodeModeIgnoresHost(t *testing.T) {
 		t.Fatal("no session cookie")
 	}
 	req, _ := http.NewRequest("GET", ts.URL+"/api/items", nil)
-	req.Host = "attacker.example:8848"
+	req.Host = "attacker.example:9958"
 	req.AddCookie(cookies[0])
 	resp, err := (&http.Client{}).Do(req)
 	if err != nil {

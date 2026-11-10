@@ -12,7 +12,7 @@ import (
 
 func TestDefaults(t *testing.T) {
 	c, err := Parse(nil, func(string) string { return "" })
-	if err != nil || c.Port != 8848 || c.Name != "drop" || c.TTL != 24*time.Hour || c.MaxSize != 4<<30 || c.Lang != "en" || c.NoAuth || c.NoSave {
+	if err != nil || c.Port != 9958 || c.Name != "drop" || c.TTL != 24*time.Hour || c.MaxSize != 4<<30 || c.Lang != "en" || c.NoAuth || c.NoSave {
 		t.Fatalf("%+v %v", c, err)
 	}
 }
@@ -75,7 +75,7 @@ func TestUsageListsEveryFlagLocalized(t *testing.T) {
 				t.Errorf("%s: description for --%s missing", lang, f.Name)
 			}
 		})
-		for _, want := range []string{"8848", `"drop"`, "24h0m0s", `"4GB"`, "-h, --help", "landrop send"} {
+		for _, want := range []string{"9958", `"drop"`, "24h0m0s", `"4GB"`, "-h, --help", "landrop send"} {
 			if !strings.Contains(s, want) {
 				t.Errorf("%s: %q missing from usage:\n%s", lang, want, s)
 			}

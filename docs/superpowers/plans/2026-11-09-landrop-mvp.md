@@ -16,7 +16,7 @@
 - Go third-party deps are limited to: `github.com/grandcat/zeroconf`, `github.com/skip2/go-qrcode`, `golang.org/x/sys`. Nothing else.
 - Binary size ≤ 15MB with frontend included. Idle RSS ≤ 30MB. Memory must not grow with file size, so stream everything.
 - Cross-compile targets: darwin/arm64, darwin/amd64, windows/amd64, linux/amd64, linux/arm64.
-- Default listen `0.0.0.0:8848`. If the port is busy, try +1 up to 10 attempts. If all fail, exit with an error that mentions `--port`.
+- Default listen `0.0.0.0:9958`. If the port is busy, try +1 up to 10 attempts. If all fail, exit with an error that mentions `--port`.
 - Flags: `--port` `--name`(default `drop`) `--dir` `--no-auth` `--ttl`(default `24h`) `--keep` `--max-size`(default `4GB`) `--no-save` `--no-open` `--lang`(en|zh|ja|ko, default `en`, env `LANDROP_LANG`) `--version`.
 - Access code: 4 random digits (crypto/rand, leading zeros allowed); no accounts — entering the code is the only gate. Link token: 128-bit random hex, passed as `?t=`. Session cookie `landrop_sid` with `HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`. Sessions live only in memory.
 - Auth rate limit: per IP, 5 consecutive failures cause a 60s lock. Global: more than 30 failures (all IPs) within any 60s window locks all code attempts for 60s; existing sessions and token links are unaffected.
@@ -130,7 +130,7 @@ func ParseSize(s string) (int64, error) // "4GB"→4<<30, "512MB"→512<<20, "10
 ```go
 func TestDefaults(t *testing.T) {
 	c, err := Parse(nil, func(string) string { return "" })
-	if err != nil || c.Port != 8848 || c.Name != "drop" || c.TTL != 24*time.Hour || c.MaxSize != 4<<30 || c.Lang != "en" || c.NoAuth || c.NoSave { t.Fatalf("%+v %v", c, err) }
+	if err != nil || c.Port != 9958 || c.Name != "drop" || c.TTL != 24*time.Hour || c.MaxSize != 4<<30 || c.Lang != "en" || c.NoAuth || c.NoSave { t.Fatalf("%+v %v", c, err) }
 }
 func TestLangEnvAndFlag(t *testing.T) {
 	env := func(k string) string { if k == "LANDROP_LANG" { return "ja" }; return "" }
@@ -419,7 +419,7 @@ func TestDropItem(t *testing.T) { m := New(time.Now); l := m.Create("i1", 3, tim
 ```go
 type Deps struct {
 	Store *store.Store; Hub *hub.Hub; Auth *auth.Manager; Share *share.Manager
-	NoAuth bool; MaxSize int64; PublicBase string /* e.g. "http://192.168.1.23:8848" */; MDNSURL string
+	NoAuth bool; MaxSize int64; PublicBase string /* e.g. "http://192.168.1.23:9958" */; MDNSURL string
 	Dir string /* --dir root or "" */; LocalSecret string; Hostname string
 	OnFileStored func(store.Item) /* autosave hook, may be nil */; Web http.Handler; Now func() time.Time
 	IsHost func(*http.Request) bool /* nil → RemoteAddr is loopback; tests override */
@@ -539,7 +539,7 @@ func TestShareOnceThenGone(t *testing.T) {
 	// GET /api/s/{id} 200 (twice, still remaining 1); GET /s/{id} 200 html; GET /s/{id}/raw 200 body ok; GET /s/{id}/raw again 410; GET /s/{id} 410
 }
 func TestShareDiesWithItem(t *testing.T) { /* share then DELETE item → GET /api/s/{id} 410 */ }
-func TestShareUsesPublicBaseNotHostHeader(t *testing.T) { /* request share via 127.0.0.1 URL; url uses PublicBase "http://192.168.1.23:8848" */ }
+func TestShareUsesPublicBaseNotHostHeader(t *testing.T) { /* request share via 127.0.0.1 URL; url uses PublicBase "http://192.168.1.23:9958" */ }
 ```
 - [ ] **Step 2:** FAIL. **Step 3:** `go get github.com/skip2/go-qrcode`, then implement. **Step 4:** `go test -race ./internal/qr/ ./internal/server/` PASS.
 - [ ] **Step 5: Commit** `feat(share): share link endpoints and QR rendering`
@@ -608,9 +608,9 @@ func TestRank(t *testing.T) {
 	if len(out) != 2 || out[0].IP.String() != "192.168.1.23" || !out[0].Recommended || out[1].Recommended { t.Fatal(out) }
 }
 func TestBannerWindowsAndNoAuth(t *testing.T) {
-	var b bytes.Buffer; termui.Print(&b, BannerInfo{Lang: "en", Port: 8848, NoAuth: true, GOOS: "windows", TokenURL: "http://x/?t=1", Addrs: []Addr{{IP: net.ParseIP("192.168.1.23"), Recommended: true}}})
+	var b bytes.Buffer; termui.Print(&b, BannerInfo{Lang: "en", Port: 9958, NoAuth: true, GOOS: "windows", TokenURL: "http://x/?t=1", Addrs: []Addr{{IP: net.ParseIP("192.168.1.23"), Recommended: true}}})
 	s := b.String()
-	for _, want := range []string{"http://192.168.1.23:8848", "--no-auth", "netsh advfirewall", "localport=8848"} { if !strings.Contains(s, want) { t.Fatal(want, s) } }
+	for _, want := range []string{"http://192.168.1.23:9958", "--no-auth", "netsh advfirewall", "localport=9958"} { if !strings.Contains(s, want) { t.Fatal(want, s) } }
 	if strings.Contains(s, "Access code") { t.Fatal("code shown in no-auth") }
 }
 func TestBannerZh(t *testing.T) { /* Lang "zh" contains the zh translation of banner.code with the code */ }
@@ -701,7 +701,7 @@ export const deviceName: Signal<string>                // localStorage 'landrop.
 export function formatSize(bytes: number): string     // 0 → "0 B", 1536 → "1.5 KB", 13002345 → "12.4 MB", 4<<30 → "4.0 GB"
 export function formatSpeed(bytesPerSec: number): string // formatSize + "/s"
 ```
-- `vite.config.ts`: `build.outDir: '../internal/webui/dist'`, `emptyOutDir: true`, dev `server.proxy` for `/api`, `/events`, `/s` → `http://127.0.0.1:8848`.
+- `vite.config.ts`: `build.outDir: '../internal/webui/dist'`, `emptyOutDir: true`, dev `server.proxy` for `/api`, `/events`, `/s` → `http://127.0.0.1:9958`.
 - `package.json` scripts: `dev`, `build` (`tsc --noEmit && vite build`), `test` (`vitest run`), `e2e` (`playwright test`). Deps: `preact`, `@preact/signals`, `highlight.js`. Dev deps: `vite`, `@preact/preset-vite`, `typescript`, `vitest`, `@playwright/test`.
 - Routing in `app.tsx` uses `location.pathname`. `/s/:id` renders `SharePage` (Task 16). Otherwise it calls `api.me()`: a 401 renders `LoginPage`, otherwise `MainPage` (Task 15). Until then a stub `<div>` is fine.
 - `LoginPage`: a 4-digit numeric input (`inputmode="numeric"`, autofocus, auto-submit at 4 digits) and error text for `bad_code`/`locked`. `LangSwitch` sits top-right.

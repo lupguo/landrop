@@ -21,7 +21,7 @@ type Deps struct {
 
 	NoAuth      bool
 	MaxSize     int64
-	PublicBase  string // e.g. "http://192.168.1.23:8848"
+	PublicBase  string // e.g. "http://192.168.1.23:9958"
 	MDNSURL     string
 	MDNSName    string // mDNS instance name (e.g. "drop"); "" → host of MDNSURL
 	Dir         string // --dir root or ""

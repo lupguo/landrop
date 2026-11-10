@@ -31,7 +31,7 @@ Flags:
   --no-auth          disable the access code (anyone on the network can join)
   --no-open          do not open the browser on start
   --no-save          do not autosave received files to ~/Downloads/LanDrop
-  --port int         listen port; tries the next one if busy, up to 10 times (default 8848)
+  --port int         listen port; tries the next one if busy, up to 10 times (default 9958)
   --ttl duration     how long items are kept (default 24h0m0s)
   --version          print the version and exit
   -h, --help         show this help
@@ -56,7 +56,7 @@ The release binaries are not code-signed.
 ## Network notes
 
 - **Windows firewall**: allow inbound TCP on the port (run in an elevated prompt):
-  `netsh advfirewall firewall add rule name="LanDrop" dir=in action=allow protocol=TCP localport=8848`
+  `netsh advfirewall firewall add rule name="LanDrop" dir=in action=allow protocol=TCP localport=9958`
 - **macOS Local Network permission**: on first run macOS may ask whether the terminal app may find devices on your local network. Allow it, or other devices (and `<name>.local`) cannot reach LanDrop. It can be changed in System Settings > Privacy & Security > Local Network.
 - **AP / client isolation**: if other devices cannot connect, check that the router or guest Wi-Fi does not have "AP isolation" / "client isolation" enabled; it blocks device-to-device traffic.
 - `drop.local` (mDNS) may not resolve on every network; use the IP address printed in the banner.
@@ -111,7 +111,7 @@ cat app.log | landrop send -
 
 ### 网络提示
 
-- **Windows 防火墙**：以管理员身份执行 `netsh advfirewall firewall add rule name="LanDrop" dir=in action=allow protocol=TCP localport=8848`。
+- **Windows 防火墙**：以管理员身份执行 `netsh advfirewall firewall add rule name="LanDrop" dir=in action=allow protocol=TCP localport=9958`。
 - **macOS 本地网络权限**：首次运行时请允许终端访问本地网络，否则其他设备无法连接。
 - **AP / 客户端隔离**：如果其他设备连不上，请检查路由器或访客 Wi-Fi 是否开启了"AP 隔离"。
 

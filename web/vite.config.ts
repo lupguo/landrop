@@ -15,7 +15,7 @@ function keepGitkeep(): Plugin {
   }
 }
 
-const target = 'http://127.0.0.1:8848'
+const target = 'http://127.0.0.1:9958'
 
 export default defineConfig({
   plugins: [preact(), keepGitkeep()],

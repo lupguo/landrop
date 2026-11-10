@@ -278,8 +278,8 @@ func TestRolesAndKick(t *testing.T) {
 	}
 	_, b := do(t, peer, ts, "GET", "/api/me", "")
 	decode(t, b, &me)
-	if me.Role != "peer" || me.PeerID == "" || me.PublicURL != "http://192.168.1.23:8848" ||
-		me.MDNSURL != "http://drop.local:8848" || me.HasDir || me.NoAuth || me.MaxSize != 4<<30 {
+	if me.Role != "peer" || me.PeerID == "" || me.PublicURL != "http://192.168.1.23:9958" ||
+		me.MDNSURL != "http://drop.local:9958" || me.HasDir || me.NoAuth || me.MaxSize != 4<<30 {
 		t.Fatalf("peer me %s", b)
 	}
 	peerID := me.PeerID

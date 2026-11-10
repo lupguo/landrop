@@ -97,7 +97,7 @@ web/                  Preact 前端源码；web/dist 由 embed 引入
 
 ### 6.1 启动（F-01~F-06、F-15）
 
-- 默认 `0.0.0.0:8848`，占用则递增，最多 10 次，失败报错并提示 `--port`。
+- 默认 `0.0.0.0:9958`，占用则递增，最多 10 次，失败报错并提示 `--port`。
 - 参数：`--port` `--name`（mDNS 名，默认 `drop`）`--dir` `--no-auth` `--ttl`（默认 24h）`--keep` `--max-size`（默认 4GB）`--no-save`（关闭自动保存，[我的判断] 新增）`--no-open`（[我的判断] 新增）`--version`。
 - 终端打印：所有可用地址（排除 loopback、docker/veth/utun/vboxnet/vmnet 等虚拟网卡）并标注推荐地址（优先私有网段、有默认路由的网卡）、`http://<name>.local:<port>`、4 位访问码、带 token 的链接及其 ASCII 二维码；以及 AP 隔离提示、Windows 防火墙 `netsh` 放行命令（仅 Windows）、macOS 本地网络权限提示。
 - 启动后用系统命令打开本机浏览器（open / xdg-open / rundll32），URL 带 token 使 Host 免输入码。
@@ -174,7 +174,7 @@ web/                  Preact 前端源码；web/dist 由 embed 引入
 
 | PRD 编号 | 处理 |
 |---|---|
-| Q1 端口 | 保持 8848 [我的判断] |
+| Q1 端口 | 9958 [用户定 2026-11-10] |
 | Q2 文本落盘 | 不落盘，保持临时定位 |
 | Q3 HTTPS/剪贴板 | 不内置 HTTPS；`execCommand` 兜底并实测（§6.3） |
 | Q4 / Q5 命名、开源 | 不影响实现，暂不处理 |

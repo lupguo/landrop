@@ -86,7 +86,7 @@ func newFlagSet(c *Config, maxSize *string, getenv func(string) string) *flag.Fl
 	if v := getenv("LANDROP_LANG"); v != "" {
 		defLang = v
 	}
-	fs.IntVar(&c.Port, "port", 8848, i18n.KeyFlagPort)
+	fs.IntVar(&c.Port, "port", 9958, i18n.KeyFlagPort)
 	fs.StringVar(&c.Name, "name", "drop", i18n.KeyFlagName)
 	fs.StringVar(&c.Dir, "dir", "", i18n.KeyFlagDir)
 	fs.BoolVar(&c.NoAuth, "no-auth", false, i18n.KeyFlagNoAuth)

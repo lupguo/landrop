@@ -9,7 +9,7 @@ import (
 
 func TestInstanceRoundTripPerms(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "sub", "instance.json")
-	in := Info{PID: 42, Port: 8848, Secret: "s3cret"}
+	in := Info{PID: 42, Port: 9958, Secret: "s3cret"}
 	if err := Write(p, in); err != nil {
 		t.Fatal(err)
 	}
