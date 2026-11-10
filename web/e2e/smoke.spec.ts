@@ -152,6 +152,7 @@ test('pasted screenshots + text arrive as one message', async ({ browser }) => {
     card.getByRole('link', { name: /^Download screenshot-/ }).click(),
   ])
   expect(dl.suggestedFilename()).toMatch(/^screenshot-/)
+  await dl.path()
   await a.ctx.close()
   await b.ctx.close()
 })
@@ -168,6 +169,7 @@ test('message share link is reusable within expiry', async ({ browser }) => {
   const card = a.page.getByTestId('item').filter({ hasText: marker })
   await expect(card).toHaveCount(1, { timeout: 10_000 })
   await card.getByRole('button', { name: 'Share' }).click()
+  await expect(a.page.getByRole('button', { name: 'Create link' })).toBeVisible()
   await expect(a.page.getByLabel('Allowed downloads')).toHaveCount(0)
   await a.page.getByRole('button', { name: 'Create link' }).click()
   const url = await a.page.locator('#sh-url').inputValue()
