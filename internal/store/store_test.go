@@ -183,3 +183,181 @@ func TestCloseRemovesDirUnlessKeep(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func stageN(t *testing.T, s *Store, owner string, n int) []string {
+	t.Helper()
+	ids := []string{}
+	for i := 0; i < n; i++ {
+		a, err := s.Stage(owner, "f.txt", "", strings.NewReader("data"), 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, a.ID)
+	}
+	return ids
+}
+
+func dirFiles(t *testing.T, s *Store) int {
+	t.Helper()
+	es, err := os.ReadDir(s.Dir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(es)
+}
+
+func TestStageAndAddMessage(t *testing.T) {
+	s, _ := newTestStore(t)
+	ids := stageN(t, s, "p1", 2)
+	it, err := s.AddMessage(From{PeerID: "p1"}, "hi", ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if it.Type != KindMessage || it.Content != "hi" || len(it.Attachments) != 2 ||
+		it.Attachments[0].ID != ids[0] || it.Attachments[1].ID != ids[1] {
+		t.Fatal(it)
+	}
+	if l := s.List(0); len(l) != 1 {
+		t.Fatal(l)
+	}
+}
+
+func TestAddMessageEmptyContentAllowed(t *testing.T) {
+	s, _ := newTestStore(t)
+	if _, err := s.AddMessage(From{PeerID: "p1"}, "", stageN(t, s, "p1", 2)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAddMessageErrors(t *testing.T) {
+	s, _ := newTestStore(t)
+	used := stageN(t, s, "p1", 1)
+	if _, err := s.AddMessage(From{PeerID: "p1"}, "", used); err != nil {
+		t.Fatal(err)
+	}
+	valid := stageN(t, s, "p1", 2)
+	other := stageN(t, s, "p2", 1)
+	many := make([]string, MaxAttachments+1)
+	for i := range many {
+		many[i] = valid[0]
+	}
+	cases := []struct {
+		name    string
+		content string
+		ids     []string
+		want    error
+	}{
+		{"none", "x", nil, ErrEmpty},
+		{"too many", "x", many, ErrTooMany},
+		{"too large", strings.Repeat("a", MaxText+1), valid, ErrTooLarge},
+		{"unknown", "x", []string{valid[0], "nope"}, ErrBadAttachment},
+		{"other owner", "x", []string{valid[0], other[0]}, ErrBadAttachment},
+		{"duplicate", "x", []string{valid[0], valid[0]}, ErrBadAttachment},
+		{"used", "x", []string{valid[0], used[0]}, ErrBadAttachment},
+	}
+	for _, c := range cases {
+		if _, err := s.AddMessage(From{PeerID: "p1"}, c.content, c.ids); !errors.Is(err, c.want) {
+			t.Fatalf("%s: got %v want %v", c.name, err, c.want)
+		}
+	}
+	if _, err := s.AddMessage(From{PeerID: "p1"}, "ok", valid); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStageSanitizesName(t *testing.T) {
+	s, _ := newTestStore(t)
+	for in, want := range map[string]string{"../../etc/x.png": "x.png", `a\b.png`: "b.png", "": "file"} {
+		a, err := s.Stage("p1", in, "", strings.NewReader("d"), 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a.Name != want {
+			t.Fatalf("%q: got %q want %q", in, a.Name, want)
+		}
+		if in == "../../etc/x.png" && a.MIME != "image/png" {
+			t.Fatal(a.MIME)
+		}
+		if in == "" && a.MIME != "application/octet-stream" {
+			t.Fatal(a.MIME)
+		}
+	}
+}
+
+func TestStageTooLarge(t *testing.T) {
+	s, _ := newTestStore(t)
+	if _, err := s.Stage("p1", "a", "", strings.NewReader("abcd"), 3); !errors.Is(err, ErrTooLarge) {
+		t.Fatal(err)
+	}
+	if n := dirFiles(t, s); n != 0 {
+		t.Fatal(n)
+	}
+}
+
+func TestOpenAttachment(t *testing.T) {
+	s, _ := newTestStore(t)
+	a, _ := s.Stage("p1", "a.txt", "", strings.NewReader("hello"), 100)
+	it, err := s.AddMessage(From{PeerID: "p1"}, "", []string{a.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, att, got, err := s.OpenAttachment(it.ID, a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	b, _ := io.ReadAll(f)
+	if string(b) != "hello" || att.ID != a.ID || got.ID != it.ID {
+		t.Fatal(string(b), att, got)
+	}
+	if _, _, _, err := s.OpenAttachment(it.ID, "nope"); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
+	}
+	txt, _ := s.AddText(From{}, "t")
+	if _, _, _, err := s.OpenAttachment(txt.ID, a.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
+	}
+}
+
+func TestMessageDeleteRemovesFiles(t *testing.T) {
+	mk := func(s *Store) Item {
+		it, err := s.AddMessage(From{PeerID: "p1"}, "", stageN(t, s, "p1", 2))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return it
+	}
+	s, now := newTestStore(t)
+	it := mk(s)
+	if dirFiles(t, s) != 2 {
+		t.Fatal("expected 2 files")
+	}
+	s.Delete(it.ID)
+	if n := dirFiles(t, s); n != 0 {
+		t.Fatal("delete", n)
+	}
+	mk(s)
+	s.Clear()
+	if n := dirFiles(t, s); n != 0 {
+		t.Fatal("clear", n)
+	}
+	mk(s)
+	*now = now.Add(25 * time.Hour)
+	s.Sweep()
+	if n := dirFiles(t, s); n != 0 {
+		t.Fatal("sweep", n)
+	}
+}
+
+func TestSweepDropsStaleStaging(t *testing.T) {
+	s, now := newTestStore(t)
+	stageN(t, s, "p1", 1)
+	*now = now.Add(29 * time.Minute)
+	if ids := s.Sweep(); len(ids) != 0 || dirFiles(t, s) != 1 {
+		t.Fatal(ids, dirFiles(t, s))
+	}
+	*now = now.Add(2 * time.Minute)
+	if ids := s.Sweep(); len(ids) != 0 || dirFiles(t, s) != 0 {
+		t.Fatal(ids, dirFiles(t, s))
+	}
+}
