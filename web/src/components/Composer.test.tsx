@@ -116,3 +116,19 @@ test('Send/Cancel swap keeps keyboard focus', () => {
   act(() => { sending.value = false })
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Send' }))
 })
+
+test('clicking pending images opens a gallery of the pending images without a download link', () => {
+  render(<Composer dragging={false} />)
+  paste(textarea(), [png('a.png'), new File(['x'], 'z.bin'), png('b.png')], '')
+  fireEvent.click(screen.getByLabelText('Preview b.png'))
+  screen.getByText('2 / 2')
+  expect(screen.queryByLabelText('Download')).toBeNull()
+  expect(screen.queryByLabelText('Preview z.bin')).toBeNull()
+})
+
+test('clicking a pending text file previews its content', async () => {
+  render(<Composer dragging={false} />)
+  paste(textarea(), [new File(['{"a":1}'], 'cfg.json', { type: 'application/json' })], '')
+  fireEvent.click(screen.getByLabelText('Preview cfg.json'))
+  await screen.findByText(/"a": 1/)
+})

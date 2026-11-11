@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	csp          = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'"
+	csp          = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src blob:; style-src 'self' 'unsafe-inline'"
 	maxNameRunes = 40
 	maxUARunes   = 200
 	nameHeader   = "X-LanDrop-Name"

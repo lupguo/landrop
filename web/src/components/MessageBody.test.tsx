@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from '@testing-library/preact'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import type { Attachment } from '../api'
 import { setLang, t } from '../i18n'
 import { MessageBody } from './MessageBody'
@@ -48,4 +48,21 @@ test('no text block when content blank', () => {
   const { container } = render(<MessageBody content={'  \n '} attachments={atts.slice(0, 1)} src={src} />)
   expect(container.querySelector('.body')).toBeNull()
   expect(container.querySelectorAll('img').length).toBe(1)
+})
+
+test('non-image files open a preview only when enabled (feed, not share)', async () => {
+  setLang('en')
+  const txt: Attachment[] = [{ id: 't1', name: 'notes.txt', size: 5, mime: 'text/plain' }]
+  const { queryByLabelText, unmount } = render(<MessageBody content="" attachments={txt} src={src} />)
+  expect(queryByLabelText('Preview notes.txt')).toBeNull()
+  unmount()
+
+  const fetch = vi.fn(async () => new Response('hello', { status: 206 }))
+  vi.stubGlobal('fetch', fetch)
+  const r = render(<MessageBody content="" attachments={txt} src={src} preview />)
+  fireEvent.click(r.getByLabelText('Preview notes.txt'))
+  await r.findByText('hello')
+  expect(fetch).toHaveBeenCalledWith('/x/t1', expect.objectContaining({ headers: { Range: 'bytes=0-1048575' } }))
+  r.getByLabelText('Download')
+  vi.unstubAllGlobals()
 })

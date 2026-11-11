@@ -41,7 +41,7 @@ export function ItemCard(props: { item: Item; onShare: (item: Item) => void }) {
           {common}
         </>} />
       ) : it.type === 'message' ? (
-        <MessageBody content={it.content ?? ''} attachments={it.attachments ?? []}
+        <MessageBody content={it.content ?? ''} attachments={it.attachments ?? []} preview
           src={(a, inline) => attachmentUrl(it.id, a.id, inline)} actions={<>
             {(it.content ?? '').trim() !== '' && (
               <button class="btn pri" onClick={() => void copy(it.content ?? '')}>{t('item.copy')}</button>

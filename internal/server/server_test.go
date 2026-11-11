@@ -12,7 +12,7 @@ import (
 	"github.com/lupguo/landrop/internal/store"
 )
 
-const wantCSP = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'"
+const wantCSP = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src blob:; style-src 'self' 'unsafe-inline'"
 
 func noRedirect(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 

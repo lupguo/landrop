@@ -190,3 +190,28 @@ test('message share link is reusable within expiry', async ({ browser }) => {
   await guest.close()
   await a.ctx.close()
 })
+
+test('pending image and json open in the viewer before sending', async ({ browser }) => {
+  const a = await newDevice(browser)
+  const bytes = Buffer.from(PNG_B64, 'base64')
+  await a.page.locator('input[type=file]').setInputFiles([
+    { name: 'pic.png', mimeType: 'image/png', buffer: bytes },
+    { name: 'data.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":"world"}') },
+  ])
+  const dialog = a.page.getByRole('dialog')
+
+  await a.page.getByRole('button', { name: 'Preview pic.png' }).click()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator('img')).toBeVisible()
+  await expect(dialog).toBeFocused()
+  await a.page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+
+  await a.page.getByRole('button', { name: 'Preview data.json' }).click()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator('pre')).toContainText('"hello": "world"')
+  await expect(dialog).toBeFocused()
+  await a.page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await a.ctx.close()
+})

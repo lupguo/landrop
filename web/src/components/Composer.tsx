@@ -1,10 +1,12 @@
-import { useLayoutEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { api } from '../api'
 import { t } from '../i18n'
 import { errText } from '../lib/errors'
 import { addFiles, cancelSend, canSend, draft, pending, removeFile, sendDraft, sending, type PendingFile } from '../lib/draft'
 import { formatSize } from '../lib/format'
 import { utf8Len } from '../lib/meta'
+import { previewKind } from '../lib/preview'
+import { ImageViewer, type ViewerItem } from './ImageViewer'
 import { toast } from './Toast'
 
 export const TEXT_LIMIT = 1 << 20
@@ -23,16 +25,30 @@ export async function sendText(text: string): Promise<boolean> {
   }
 }
 
-function TrayItem(props: { p: PendingFile; busy: boolean }) {
-  const { p } = props
+/** Viewer item for a pending (local) file; null when it can't be previewed. */
+function trayView(p: PendingFile): ViewerItem | null {
+  if (p.isImage && p.url) return { name: p.file.name, kind: 'image', src: p.url }
+  const kind = previewKind(p.file.name, p.file.type, p.file.size)
+  return kind && kind !== 'image' ? { name: p.file.name, kind, file: p.file, mime: p.file.type, size: p.file.size } : null
+}
+
+function TrayItem(props: { p: PendingFile; busy: boolean; onOpen?: () => void }) {
+  const { p, onOpen } = props
   const name = p.file.name
   const pct = p.file.size > 0 ? Math.min(100, Math.round((p.loaded / p.file.size) * 100)) : 0
   const err = p.state === 'error' ? (p.error === 'too_large' ? t('composer.file_too_large') : errText(p.error ?? '')) : ''
   return (
     <li class={`att ${p.isImage ? 'img' : 'chip'} ${p.state}`} title={err ? `${name} — ${err}` : name}>
       {p.isImage && p.url
-        ? <img src={p.url} alt={name} />
-        : (
+        ? (onOpen
+          ? <button type="button" class="att-open" aria-label={t('viewer.preview', { name })} onClick={onOpen}><img src={p.url} alt={name} /></button>
+          : <img src={p.url} alt={name} />)
+        : onOpen ? (
+          <button type="button" class="att-meta att-open" aria-label={t('viewer.preview', { name })} onClick={onOpen}>
+            <span class="att-name">{name}</span>
+            <span class="fsub">{formatSize(p.file.size)}</span>
+          </button>
+        ) : (
           <span class="att-meta">
             <span class="att-name">{name}</span>
             <span class="fsub">{formatSize(p.file.size)}</span>
@@ -59,6 +75,17 @@ export function Composer(props: { dragging: boolean; textareaRef?: { current: HT
   const busy = sending.value
   const tooLarge = text.length > TEXT_LIMIT / 4 && utf8Len(text) > TEXT_LIMIT
   const ready = canSend.value && !tooLarge
+  const [viewKey, setViewKey] = useState<string | null>(null)
+  const views = new Map<string, ViewerItem>()
+  for (const p of files) { const v = trayView(p); if (v) views.set(p.key, v) }
+
+  // Images open as a gallery of the pending images; other files open alone.
+  let viewer: { items: ViewerItem[]; start: number } | null = null
+  const opened = viewKey ? views.get(viewKey) : undefined
+  if (opened?.kind === 'image') {
+    const keys = files.filter((p) => views.get(p.key)?.kind === 'image').map((p) => p.key)
+    viewer = { items: keys.map((k) => views.get(k)!), start: keys.indexOf(viewKey!) }
+  } else if (opened) viewer = { items: [opened], start: 0 }
 
   useLayoutEffect(() => {
     const el = ta.current
@@ -103,9 +130,10 @@ export function Composer(props: { dragging: boolean; textareaRef?: { current: HT
     <div class={`composer${props.dragging ? ' drag' : ''}`}>
       {files.length > 0 && (
         <ul class="tray">
-          {files.map((p) => <TrayItem key={p.key} p={p} busy={busy} />)}
+          {files.map((p) => <TrayItem key={p.key} p={p} busy={busy} onOpen={views.has(p.key) ? () => setViewKey(p.key) : undefined} />)}
         </ul>
       )}
+      {viewer && <ImageViewer images={viewer.items} start={viewer.start} onClose={() => setViewKey(null)} />}
       <textarea
         ref={ta}
         rows={2}

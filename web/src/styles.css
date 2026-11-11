@@ -246,3 +246,24 @@ a.btn { text-decoration: none; display: inline-block; }
 .viewer-nav.prev { left: 12px; }
 .viewer-nav.next { right: 12px; }
 @media (max-width: 600px) { .overlay.viewer { align-items: center; } }
+/* ---- file preview (text / audio / video / pdf) ---- */
+.pv-open { border: none; padding: 0; font-family: inherit; cursor: pointer; }
+.pv-open:hover { filter: brightness(.95); }
+.pv-link { display: block; max-width: 100%; padding: 0; border: none; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.pv-link:hover { color: var(--acc); text-decoration: underline; }
+.pv-open:focus-visible, .pv-link:focus-visible, .att-open:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.att-open { display: block; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.att.img .att-open { width: 100%; height: 100%; cursor: zoom-in; }
+.att.img .att-open img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pv-card { background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; }
+.pv-msg { padding: 20px 24px; max-width: min(420px, calc(100% - 32px)); text-align: center; }
+.pv-msg p { margin: 8px 0 0; color: var(--mut); }
+.pv-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pv-text { display: flex; flex-direction: column; width: min(960px, calc(100% - 32px)); height: calc(100% - 128px); overflow: hidden; }
+.pv-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.pv-note { flex: none; margin-left: auto; font-size: 12px; color: var(--mut); }
+.pv-pre { flex: 1; margin: 0; padding: 12px 14px; overflow: auto; background: var(--code); font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre; tab-size: 4; outline: none; }
+.pv-pdf { width: min(1000px, calc(100% - 32px)); height: calc(100% - 128px); background: #fff; }
+.pv-audio { display: flex; flex-direction: column; gap: 12px; padding: 20px; width: min(480px, calc(100% - 32px)); }
+.pv-audio audio { width: 100%; }
+.pv-video { max-width: 100%; max-height: calc(100% - 128px); background: #000; }

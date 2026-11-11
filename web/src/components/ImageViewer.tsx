@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { t } from '../i18n'
 import { useOverlay } from '../lib/overlay'
+import { FilePreview, type ViewerItem } from './FilePreview'
 
 const FOCUSABLE = 'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
-export type ViewerImage = { src: string; download: string; name: string }
+export type { ViewerItem }
 
-/** Full-screen image viewer: arrows/keys/swipe navigate (clamped), Esc/backdrop close. */
-export function ImageViewer(props: { images: ViewerImage[]; start: number; onClose: () => void }) {
+/**
+ * Full-screen viewer for images and previewable files (text, audio, video, pdf).
+ * With several items, arrows/keys/swipe navigate (clamped); Esc/backdrop close.
+ */
+export function ImageViewer(props: { images: ViewerItem[]; start: number; onClose: () => void }) {
   useOverlay()
   const n = props.images.length
   const [i, setI] = useState(Math.min(Math.max(props.start, 0), Math.max(n - 1, 0)))
@@ -26,7 +30,8 @@ export function ImageViewer(props: { images: ViewerImage[]; start: number; onClo
       // Capture phase on window + stopImmediatePropagation: keys never reach overlays underneath.
       const stop = () => { e.preventDefault(); e.stopImmediatePropagation() }
       if (e.key === 'Escape') { stop(); close.current(); return }
-      if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      // Single item: leave arrows to the content (video seek, text scroll).
+      if (count.current > 1 && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !e.altKey && !e.ctrlKey && !e.metaKey) {
         stop(); go(e.key === 'ArrowRight' ? 1 : -1); return
       }
       if (e.key !== 'Tab' || !box.current) return
@@ -64,12 +69,16 @@ export function ImageViewer(props: { images: ViewerImage[]; start: number; onClo
       }}>
       <div class="viewer-box" role="dialog" aria-modal="true" aria-label={cur.name} tabIndex={-1} ref={box}
         onMouseDown={(e) => { if (e.target === e.currentTarget) props.onClose() }}>
-        <img class="viewer-img" src={cur.src} alt={cur.name} draggable={false} />
+        {!cur.kind || cur.kind === 'image'
+          ? <img class="viewer-img" src={cur.src} alt={cur.name} draggable={false} />
+          : <FilePreview item={cur} />}
         <div class="viewer-bar">
           {n > 1 && <span class="viewer-count">{t('viewer.count', { i: i + 1, n })}</span>}
-          <a class="btn icon" href={cur.download} download aria-label={t('viewer.download')} title={t('viewer.download')}>
-            <span aria-hidden="true">↓</span>
-          </a>
+          {cur.download && (
+            <a class="btn icon" href={cur.download} download={cur.name} aria-label={t('viewer.download')} title={t('viewer.download')}>
+              <span aria-hidden="true">↓</span>
+            </a>
+          )}
           <button class="btn icon" aria-label={t('viewer.close')} title={t('viewer.close')} onClick={props.onClose}>
             <span aria-hidden="true">×</span>
           </button>
