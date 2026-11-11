@@ -45,11 +45,17 @@ func (s *server) handleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleMe describes the caller and server settings.
+// handleMe describes the caller and server settings. It also carries what the
+// terminal banner shows, so any member can invite others: the access code and
+// the token link encoded in the QR code (scanning it skips the code).
 func (s *server) handleMe(w http.ResponseWriter, r *http.Request) {
 	role := "peer"
 	if s.IsHost(r) {
 		role = "host"
+	}
+	code, joinURL := s.Auth.Code(), s.PublicBase+"/?t="+s.Auth.Token()
+	if s.NoAuth {
+		code, joinURL = "", s.PublicBase
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"peer_id":    sessionFrom(r).PeerID,
@@ -59,5 +65,7 @@ func (s *server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"mdns_url":   s.MDNSURL,
 		"has_dir":    s.Dir != "",
 		"max_size":   s.MaxSize,
+		"code":       code,
+		"join_url":   joinURL,
 	})
 }

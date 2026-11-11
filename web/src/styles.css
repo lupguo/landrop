@@ -188,6 +188,19 @@ a.btn { text-decoration: none; display: inline-block; }
 .dlg-head .btn:focus-visible, .dialog .inp:focus-visible { outline: 2px solid var(--acc); }
 
 .peers { position: fixed; top: 56px; right: max(12px, calc((100vw - 792px) / 2 + 18px)); width: 320px; max-width: calc(100vw - 24px); max-height: 60vh; overflow-y: auto; padding: 8px 0; z-index: 30; outline: none; box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+.invite { position: fixed; top: 56px; right: max(12px, calc((100vw - 792px) / 2 + 18px)); width: 300px; max-width: calc(100vw - 24px); max-height: calc(100vh - 72px); overflow-y: auto; padding: 8px 14px 12px; z-index: 30; outline: none; box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+.invite .peers-head { padding: 4px 0 0; }
+.invite .qr { margin: 8px 0 4px; }
+.invite .field { margin: 12px 0 8px; }
+.invite-code { display: flex; align-items: center; gap: 10px; }
+.invite-code .lbl { font-size: 12px; color: var(--mut); }
+.code-val { font-size: 20px; font-weight: 700; letter-spacing: 6px; color: var(--acc); background: var(--accbg); border-radius: 8px; padding: 2px 6px 2px 12px; }
+.invite > .hint:last-child { margin: 6px 0 0; }
+.sheet-scrim { display: none; }
+@media (max-width: 560px) {
+  .invite { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-width: none; border-radius: 14px 14px 0 0; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .sheet-scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 29; }
+}
 .peers-head { font-size: 12px; color: var(--mut); padding: 4px 14px 6px; }
 .peers .hint { padding: 0 14px; }
 .peer { display: flex; align-items: center; gap: 10px; padding: 7px 14px; }

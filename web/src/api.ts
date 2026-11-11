@@ -20,6 +20,10 @@ export interface Me {
   no_auth: boolean
   public_url: string
   mdns_url: string
+  /** Access code; "" with --no-auth. */
+  code: string
+  /** QR target: the token login link (plain address with --no-auth). */
+  join_url: string
   has_dir: boolean
   max_size: number
 }

@@ -18,7 +18,7 @@ function paste(text: string) {
 
 test('global paste is ignored while an overlay is open, and works again after', async () => {
   setLang('en')
-  me.value = { peer_id: 'p1', role: 'host', no_auth: false, public_url: '', mdns_url: '', has_dir: false, max_size: 1 }
+  me.value = { peer_id: 'p1', role: 'host', no_auth: false, public_url: '', mdns_url: '', code: '', join_url: '', has_dir: false, max_size: 1 }
   peers.value = []
   const f = vi.fn(async () => new Response('{}', { status: 201, headers: { 'content-type': 'application/json' } }))
   vi.stubGlobal('fetch', f)

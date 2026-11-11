@@ -10,6 +10,7 @@ import { Composer, sendText, TEXT_LIMIT } from './Composer'
 import { ConnBanner } from './ConnBanner'
 import { DirBrowser } from './DirBrowser'
 import { Feed } from './Feed'
+import { InvitePanel } from './InvitePanel'
 import { PeersPanel } from './PeersPanel'
 import { Settings } from './Settings'
 import { ShareDialog } from './ShareDialog'
@@ -28,7 +29,7 @@ function hasFiles(e: DragEvent): boolean {
 export function MainPage() {
   const dragging = useSignal(false)
   const ta = useRef<HTMLTextAreaElement>(null)
-  const panel = useSignal<'' | 'peers' | 'settings'>('')
+  const panel = useSignal<'' | 'invite' | 'peers' | 'settings'>('')
   const sharing = useSignal<Item | null>(null)
   const tab = useSignal<'messages' | 'folder'>('messages')
   const hasDir = !!me.value?.has_dir
@@ -134,6 +135,7 @@ export function MainPage() {
   return (
     <div class="main">
       <TopBar
+        onInviteClick={() => { panel.value = panel.value === 'invite' ? '' : 'invite' }}
         onPeersClick={() => { panel.value = panel.value === 'peers' ? '' : 'peers' }}
         onSettingsClick={() => { panel.value = 'settings' }}
       />
@@ -152,6 +154,7 @@ export function MainPage() {
           </>
         )}
       </div>
+      {panel.value === 'invite' && <InvitePanel onClose={() => { panel.value = '' }} />}
       {panel.value === 'peers' && <PeersPanel onClose={() => { panel.value = '' }} />}
       {panel.value === 'settings' && <Settings onClose={() => { panel.value = '' }} />}
       {sharing.value && <ShareDialog item={sharing.value} onClose={() => { sharing.value = null }} />}

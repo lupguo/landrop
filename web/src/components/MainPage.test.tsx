@@ -12,7 +12,7 @@ let fetchMock: ReturnType<typeof vi.fn>
 let n = 0
 beforeEach(() => {
   setLang('en')
-  me.value = { peer_id: 'p1', role: 'host', no_auth: false, public_url: '', mdns_url: '', has_dir: false, max_size: 1 << 20 }
+  me.value = { peer_id: 'p1', role: 'host', no_auth: false, public_url: '', mdns_url: '', code: '', join_url: '', has_dir: false, max_size: 1 << 20 }
   peers.value = []
   URL.createObjectURL = vi.fn(() => `blob:${++n}`)
   URL.revokeObjectURL = vi.fn()
@@ -104,4 +104,13 @@ test('paste/drop on the Folder tab switches to Messages so the draft is visible'
   act(() => { document.dispatchEvent(ev) })
   expect(pending.value.length).toBe(2)
   await waitFor(() => expect(document.activeElement).toBe(textarea()))
+})
+
+test('Invite button toggles the invite panel', () => {
+  render(<MainPage />)
+  const btn = screen.getByText('Invite')
+  act(() => { btn.click() })
+  expect(screen.getByRole('dialog', { name: 'Invite others' })).toBeTruthy()
+  act(() => { btn.click() })
+  expect(screen.queryByRole('dialog', { name: 'Invite others' })).toBeNull()
 })

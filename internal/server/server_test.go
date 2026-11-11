@@ -427,3 +427,27 @@ func TestEmptyDeviceNameForPeers(t *testing.T) {
 		t.Fatalf("peers %+v", ps)
 	}
 }
+
+func TestMeInviteInfo(t *testing.T) {
+	type invite struct {
+		Code    string `json:"code"`
+		JoinURL string `json:"join_url"`
+	}
+	ts, d := newTestServer(t, nil)
+	var me invite
+	_, b := do(t, login(t, ts), ts, "GET", "/api/me", "")
+	decode(t, b, &me)
+	if me.Code != d.Auth.Code() || me.JoinURL != "http://192.168.1.23:9958/?t="+d.Auth.Token() {
+		t.Fatalf("me %s", b)
+	}
+
+	// NoAuth: no code to hand out; the plain address is the join link.
+	ts2, _ := newTestServer(t, func(d *Deps) { d.NoAuth = true })
+	jar, _ := cookiejar.New(nil)
+	_, b = do(t, &http.Client{Jar: jar}, ts2, "GET", "/api/me", "")
+	me = invite{}
+	decode(t, b, &me)
+	if me.Code != "" || me.JoinURL != "http://192.168.1.23:9958" {
+		t.Fatalf("noauth me %s", b)
+	}
+}

@@ -7,7 +7,7 @@ import { PeersPanel } from './PeersPanel'
 
 afterEach(cleanup)
 
-const base = { no_auth: false, public_url: '', mdns_url: '', has_dir: false, max_size: 1 }
+const base = { no_auth: false, public_url: '', mdns_url: '', code: '', join_url: '', has_dir: false, max_size: 1 }
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/537.36 Chrome/120.0 Safari/537.36'
 
 function setup(role: 'host' | 'peer') {
